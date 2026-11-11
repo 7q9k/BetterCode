@@ -1,4 +1,4 @@
-![BetterCode](https://raw.githubusercontent.com/{{repository}}/v{{version}}/bettercode/screenshots/start.png)
+![BetterCode](https://raw.githubusercontent.com/{{repository}}/HEAD/bettercode/screenshots/team.png)
 
 ## Install
 
@@ -29,4 +29,4 @@ This installs the `bettercode` command and the desktop app. Run it again to upda
 
 The builds are not code-signed. The installers prepare them so they open normally; a manually downloaded desktop app may show a warning from macOS Gatekeeper or Windows SmartScreen.
 
-![Model picker](https://raw.githubusercontent.com/{{repository}}/v{{version}}/bettercode/screenshots/models.png)
+![Model picker](https://raw.githubusercontent.com/{{repository}}/HEAD/bettercode/screenshots/models.png)
