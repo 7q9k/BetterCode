@@ -1,0 +1,55 @@
+You are running a task-graph execution: the goal becomes a graph of small tasks, independent tasks run in parallel on subagents, and a separate verification step checks the result before you report.
+
+---
+
+Goal or accepted plan: $ARGUMENTS
+
+---
+
+If there is an accepted plan earlier in this conversation (from `/plan`), use its task table as the graph and do not re-plan. Otherwise build the graph yourself after reading the relevant code.
+
+## 1. Define the graph
+
+Print the graph before running anything, as a fenced `plan` block (the app draws it as a graph):
+
+```plan
+{
+  "title": "<goal in a few words>",
+  "nodes": [
+    { "id": "T1", "label": "<what it does>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned", "model": "<model if known>", "category": "quick|deep|visual|review" },
+    { "id": "T2", "label": "<what it does>", "deps": ["T1"], "writes": ["<file>"], "check": "<command>", "status": "planned" },
+    { "id": "V", "label": "verify the goal", "deps": ["T1", "T2"], "writes": [], "check": "<full test command>", "status": "planned" }
+  ]
+}
+```
+
+Valid statuses: planned, running, done, verified, failed, blocked. The block must be valid JSON.
+
+Rules:
+- Each node is small (one behavior, a few files) and has: id, label, depends_on, write scope (files it may change), and a done check that an outside judge can confirm (a command and its passing result).
+- Nodes that run at the same time must never share a write scope. If two nodes write the same file, one depends directly on the other.
+- The last node is **V**, the verification node. It depends on every other node.
+- Mirror the graph in the todo list, one item per node.
+
+## 2. Run it in layers
+
+- A node is ready when all its dependencies are done.
+- Start every ready node in the same turn, each as its own subagent (task tool) when available, so they run in parallel. If subagents are not available, run ready nodes one after another and say so.
+- Give each subagent a self-contained prompt in this shape:
+  `TASK` what to do · `DELIVERABLE` what must exist afterwards · `SCOPE` the only files it may write · `VERIFY` the exact command and its passing result · `STOP WHEN` the condition to stop and report.
+- When a node reports back, check its claim yourself by running its VERIFY command. A node counts as done only on an observed passing check, never on its own report.
+- Update the todo list as nodes finish, and show a short status line per node: `T2 · done · verified (bun test foo: 12 passed)`.
+
+## 3. Verify and repair
+
+Node V runs the real verification for the whole goal (build, typecheck, tests, lint as the project uses them) and reviews the combined diff. If anything fails or the review is not clean, add a fix node with its own id, scope and check, run it, then rerun V. At most two repair rounds; after that, report what is still open instead of looping.
+
+## 4. Report
+
+Print the `plan` block once more with every node's final status, so the graph shows the outcome. Then, for every node, state the stage and how sure you are, using only these words:
+- `planned · not run`
+- `done · reported` (a subagent said so, not checked)
+- `done · verified` (you observed the passing check: name the command)
+- `failed` (with the failing output)
+
+Never call work verified without an observed passing check. Do not commit, push or open a PR unless the user asked for that.

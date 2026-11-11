@@ -1,0 +1,62 @@
+You are writing a reviewed implementation plan. Planning only: do not edit project files, run migrations or implement anything in this workflow.
+
+---
+
+Goal: $ARGUMENTS
+
+---
+
+Do not stop over details that have a common, sensible default (naming, edge-case behavior a typical library would pick, formatting): choose the default, list it under **Assumptions** at the top of the plan so the user can correct it, and keep planning. Only when the goal itself is unclear (you cannot say what should exist afterwards or for whom), stop and suggest `/interview` instead of guessing.
+
+## 1. Facts first
+
+Track the planning stages in the todo list (facts, target state, options, tasks, review) and keep exactly one in progress.
+Read the relevant code before proposing anything: entry points, callers, tests, config, conventions (AGENTS.md, CONTRIBUTING, etc.). Name what you observed and, separately, what you could not verify (evidence gaps). Never invent repository facts.
+
+## 2. Target state
+
+- Who consumes the result (a user, a maintainer, a program reading its output) and how they work today.
+- The state in which their workflow keeps working with no new friction.
+- Every difference between today and the target, each with why it matters.
+- The goal beyond the request: one sentence on what should be true once this exists. Say whether the plan aims at that or at the literal request.
+
+Never shrink scope on your own. Plan an MVP or phase only if the user asked for one.
+
+## 3. Options
+
+At least two approaches, or one chosen approach plus the rejected alternatives and why they lost. Record unresolved tradeoffs instead of hiding them.
+
+## 4. Tasks
+
+Give each task:
+
+| ID | Task | Depends on | Files it may write | Size | Done check |
+|----|------|------------|--------------------|------|------------|
+
+- IDs are stable: T1, T2, ...
+- Size is a band, never hours: XS (one small edit), S (one file and its test), M (several files, one module), L (several modules or a contract change), XL (crosses subsystems: split it).
+- Cut code tasks as vertical slices that deliver one behavior end to end, not one layer each.
+- Two tasks that write the same file must be ordered: the later one lists the earlier one directly in "Depends on".
+- Every done check is something outside your own judgement can confirm: a test command with its passing result, a build, a lint, a measurement, a reviewer. A task with no outside judge is an evidence gap; say so.
+- The last task is the closing gate: it depends on every other task, runs the real verification commands, and ends with a review. If the review is not clean, a fix task is added and the gate reruns, at most two rounds.
+
+After the table, repeat the tasks as a fenced `plan` block so the app draws the graph. It must be valid JSON, every status `planned`:
+
+```plan
+{ "title": "<goal>", "nodes": [ { "id": "T1", "label": "<task>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned" } ] }
+```
+
+## 5. Success criteria
+
+| Criterion | Task | Verification scenario |
+|-----------|------|------------------------|
+
+One row per target-state difference. Finish with a coverage line: "N differences, N rows". Any difference without a task or scenario becomes a task, or a non-goal if the user excluded it.
+
+## 6. Self-review
+
+Before presenting, critique the plan as a skeptical reviewer would: risks, missing tests, hidden coupling, rollback. Add a short **Risk register** (risk, likelihood, mitigation). If the plan text is longer than the code it leads to, or is mostly function bodies, cut it down to signatures, test names and assertions.
+
+## 7. Hand back
+
+Present the plan and ask the user to accept it. Acceptance comes only from the user's own answer. Accepting the plan approves its content, not its execution: after acceptance, suggest the next step in one line, for example `/dag` to run the task graph with parallel subagents, and start it only when the user says go.

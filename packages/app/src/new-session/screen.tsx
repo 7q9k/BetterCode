@@ -100,7 +100,30 @@ export default function NewSessionPage(props: { draftId: string }) {
     <div class="relative size-full overflow-hidden flex flex-col">
       {suspendUntilPromptReady()}
       <div class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
-        <NewSessionView composer={model} project={project} workspace={workspace} location={location} />
+        <NewSessionView
+          composer={model}
+          project={project}
+          workspace={workspace}
+          location={location}
+          onSuggestion={(text) => {
+            // Type into the editor like the user would, so its own input handling runs and a slash command
+            // opens the command menu. Fall back to writing the draft when the editor is not mounted.
+            const editor = document.querySelector<HTMLElement>(
+              '[data-component="new-session"] [contenteditable="true"][role="textbox"]',
+            )
+
+            if (editor) {
+              editor.focus()
+              document.execCommand("selectAll")
+              document.execCommand("insertText", false, text)
+
+              return
+            }
+
+            composer.adapter.state.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+            model.restoreFocus()
+          }}
+        />
       </div>
     </div>
   )

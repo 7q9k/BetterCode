@@ -5,6 +5,14 @@ import path from "node:path"
 import { Option, Schema } from "effect"
 import { importModule, resolveModule } from "@opencode/util/runtime-import"
 
+// A module that does not exist, as Node (`code`) or Bun (a ResolveMessage, not an Error) reports it.
+function missingModule(error: unknown) {
+  if (typeof error !== "object" || error === null) return false
+  const name = "name" in error ? String(error.name) : ""
+  const message = "message" in error ? String(error.message) : ""
+  return name === "ResolveMessage" && message.startsWith("Cannot find module")
+}
+
 export interface Target {
   readonly directory: string
   readonly name?: string
@@ -36,6 +44,8 @@ export function resolve(input: Target): Entrypoints {
       try {
         return resolveModule(specifier, target.directory)
       } catch (error) {
+        // Bun reports a missing module as a ResolveMessage, which is not an Error and may carry no `code`.
+        if (missingModule(error)) continue
         if (
           !(error instanceof Error) ||
           !("code" in error) ||

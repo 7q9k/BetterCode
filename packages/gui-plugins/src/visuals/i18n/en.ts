@@ -1,0 +1,15 @@
+export default {
+  plan: "Plan",
+  "plans.title": "Plans",
+  "plans.empty": "No plan yet. Run /plan or /dag, and the task graph appears here.",
+  "plans.earlier": "Plans in this session",
+  dependencies: "Dependencies",
+  writes: "Writes",
+  summary: "Summary",
+  "status.planned": "planned",
+  "status.running": "running",
+  "status.done": "done",
+  "status.verified": "verified",
+  "status.failed": "failed",
+  "status.blocked": "blocked",
+}

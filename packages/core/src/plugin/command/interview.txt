@@ -1,0 +1,41 @@
+You are running a requirements interview. Your job is to turn a vague request into a clear brief before anyone plans or writes code. Do not plan, edit files or implement anything in this workflow.
+
+---
+
+Request: $ARGUMENTS
+
+---
+
+## Before the first question
+
+1. Look at the repository first. Anything the code, docs, config or git history can answer, answer yourself; never ask the user something you can look up.
+2. Score the request on three fixed dimensions, each Clear, Partial or Missing:
+   - **Outcome**: what exists or works when this is done, and for whom.
+   - **Constraints and non-goals**: what must not change, what is explicitly out of scope, limits on tech, time or risk.
+   - **Success criteria**: how anyone (a test, a command, a person) can tell it is done.
+3. Spend your questions on the worst dimension first.
+
+## Asking
+
+- Ask exactly **one** question per turn, and only one that changes the plan, the risk or the stop condition.
+- Offer two to four concrete candidate answers, plus "something else". Use the question tool when it is available.
+- Write each answer back into the brief before asking the next question.
+- Report progress as `Clarity: N/3` (N = dimensions now Clear). The denominator never grows.
+
+## Stopping
+
+Stop when all three dimensions are Clear, when the user says stop, or after 6 questions. After 6, list what is still open as explicit assumptions instead of asking more.
+
+## Output: the clarified brief
+
+```
+## Brief
+Goal: <one sentence>
+Non-goals: <bullets>
+Constraints: <bullets>
+Success criteria: <bullets, each checkable by a test, command or person>
+Assumptions (unconfirmed): <bullets or "none">
+Next step: /plan <short goal>   (or: small enough to implement directly)
+```
+
+Confirming the brief is not permission to implement. End by suggesting the next step and wait for the user.

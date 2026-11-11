@@ -5,8 +5,44 @@ import { Effect, Stream } from "effect"
 import { Bus } from "../bus.js"
 import { Location } from "../location.js"
 import { Mcp } from "../mcp/index.js"
+import PROMPT_DAG from "./command/dag.txt"
 import PROMPT_INITIALIZE from "./command/initialize.txt"
+import PROMPT_INTERVIEW from "./command/interview.txt"
+import PROMPT_PLAN from "./command/plan.txt"
 import PROMPT_REVIEW from "./command/review.txt"
+import PROMPT_VERIFY from "./command/verify.txt"
+
+// Prompt-template commands. interview, plan, dag and verify adapt the planning workflows of
+// oh-my-hermes (https://github.com/rlaope/oh-my-hermes, MIT): clarify, plan with success criteria,
+// run the task graph on parallel subagents, and report nothing as done without observed evidence.
+const TEMPLATES = [
+  { name: "init", description: "guided AGENTS.md setup", template: PROMPT_INITIALIZE },
+  {
+    name: "review",
+    description: "review changes [commit|branch|pr], defaults to uncommitted",
+    template: PROMPT_REVIEW,
+  },
+  {
+    name: "interview",
+    description: "clarify a vague request one question at a time, ending in a brief",
+    template: PROMPT_INTERVIEW,
+  },
+  {
+    name: "plan",
+    description: "reviewed plan with tasks, success criteria and verification, no code changes",
+    template: PROMPT_PLAN,
+  },
+  {
+    name: "dag",
+    description: "run a goal or accepted plan as a task graph on parallel subagents, then verify",
+    template: PROMPT_DAG,
+  },
+  {
+    name: "verify",
+    description: "evidence gate: PASS, HOLD or BLOCK for a claimed change, defaults to uncommitted",
+    template: PROMPT_VERIFY,
+  },
+] as const
 
 export const Plugin = define({
   id: "opencode.command",
@@ -26,32 +62,21 @@ export const Plugin = define({
     )
     loaded.prompts = yield* mcp.prompts()
     yield* ctx.command.transform((editor) => {
-      editor.add({
-        name: "init",
-        description: "guided AGENTS.md setup",
-        execute: (input) =>
-          ctx.session
-            .prompt({
-              ...input.prompt,
-              sessionID: input.sessionID,
-              text: append(PROMPT_INITIALIZE.replace("${path}", location.project.directory), input.prompt.text),
-              delivery: input.delivery,
-            })
-            .pipe(Effect.asVoid),
-      })
-      editor.add({
-        name: "review",
-        description: "review changes [commit|branch|pr], defaults to uncommitted",
-        execute: (input) =>
-          ctx.session
-            .prompt({
-              ...input.prompt,
-              sessionID: input.sessionID,
-              text: append(PROMPT_REVIEW.replace("${path}", location.project.directory), input.prompt.text),
-              delivery: input.delivery,
-            })
-            .pipe(Effect.asVoid),
-      })
+      for (const command of TEMPLATES) {
+        editor.add({
+          name: command.name,
+          description: command.description,
+          execute: (input) =>
+            ctx.session
+              .prompt({
+                ...input.prompt,
+                sessionID: input.sessionID,
+                text: append(command.template.replace("${path}", location.project.directory), input.prompt.text),
+                delivery: input.delivery,
+              })
+              .pipe(Effect.asVoid),
+        })
+      }
       for (const prompt of loaded.prompts) {
         editor.add({
           name: mcpCommandName(prompt.server, prompt.name),
