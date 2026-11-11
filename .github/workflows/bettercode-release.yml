@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: darwin-arm64, host: macos-26, install: --os=darwin --cpu=arm64 }
+          - { target: darwin-arm64, host: macos-15, install: --os=darwin --cpu=arm64 }
           - { target: darwin-x64, host: macos-26-intel, install: --os=darwin --cpu=x64 }
           - { target: windows-x64, host: windows-2025, install: "" }
           - { target: linux-x64, host: ubuntu-24.04, install: "" }
