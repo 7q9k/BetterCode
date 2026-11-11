@@ -178,8 +178,10 @@ const getBase = (appId: string): Configuration => {
       include: path.join(packageDir, "resources", "windows", "installer.nsh"),
       oneClick: true,
       perMachine: false,
-      installerIcon: `resources/icons/icon.ico`,
-      installerHeaderIcon: `resources/icons/icon.ico`,
+      // The setup and uninstall programs show only the b, without the app tile.
+      installerIcon: `resources/icons/installer.ico`,
+      uninstallerIcon: `resources/icons/installer.ico`,
+      installerHeaderIcon: `resources/icons/installer.ico`,
     },
     linux: {
       icon: `resources/icons`,
