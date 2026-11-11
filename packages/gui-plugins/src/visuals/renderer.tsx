@@ -1,7 +1,6 @@
-import { createSignal } from "solid-js"
 import { CodeBlock, createKeyed, Panel, type MountedSession, type Plugin } from "@opencode/plugin/gui"
 import { showToast } from "@opencode/ui/toast"
-import { teamNote } from "./team"
+import { teamMembers, teamNote } from "./team"
 import type VisualsDefinition from "./index"
 import { ChartView } from "./chart"
 import { collectPlans, parseChart, parsePlan } from "./model"
@@ -107,7 +106,7 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
         t={t}
         setup={ctx.stores.team.value}
         leadModel={leadModel(props.screen.composer.model())}
-        applied={applied().get(props.session.key) === setupKey()}
+        applied={!setupDue(ctx.stores.teamSent(props.session).value?.setup ?? "")}
         onEnabled={(enabled) =>
           ctx.stores.team.update((draft) => {
             draft.enabled = enabled
@@ -118,32 +117,36 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
             draft.off = included ? draft.off.filter((item) => item !== id) : [...draft.off, id]
           })
         }
-        onApply={(members) => void apply(props.session, teamNote(members, ctx.stores.team.value))}
+        onApply={(members) => void apply(props.session, members)}
         // Picking a member starts a prompt that hands the work to it; the user finishes and sends it.
         onAsk={(name) => props.screen.composer.setText(ctx.t("team.prompt").replace("{{agent}}", name))}
       />
     ),
   }
 
-  // Which setup each session last received, so Apply shows whether the session is up to date.
-  const [applied, setApplied] = createSignal(new Map<string, string>())
   const setupKey = () => JSON.stringify(ctx.stores.team.value)
+
+  // The default setup (team on, every agent in) needs no note: the lead's instructions already say so.
+  const DEFAULT_SETUP = JSON.stringify({ enabled: true, off: [] })
+
+  // Whether a session that last received `last` needs the current setup: it changed, and is not the default.
+  const setupDue = (last: string) => last !== setupKey() && !(last === "" && setupKey() === DEFAULT_SETUP)
 
   const leadModel = (model: { providerID: string; modelID: string; variant?: string } | undefined) =>
     model ? `${model.providerID}/${model.modelID}${model.variant ? ` · ${model.variant}` : ""}` : undefined
 
   // Sends the setup to the session as a note the lead reads on its next turn; it does not start a turn by itself.
-  const apply = async (session: MountedSession, text: string) => {
+  const apply = async (session: MountedSession, members: Parameters<typeof teamNote>[0]) => {
     const key = setupKey()
 
     try {
       await session.server.client.session.synthetic({
         sessionID: session.id,
-        text,
+        text: teamNote(members, ctx.stores.team.value),
         description: ctx.t("team.note"),
         resume: false,
       })
-      setApplied((previous) => new Map(previous).set(session.key, key))
+      ctx.stores.teamSent(session).set({ setup: key })
     } catch (cause) {
       showToast({
         variant: "error",
@@ -154,6 +157,24 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
   }
 
   ctx.add(Panel, team)
+
+  // Syncs the routed session with the team setup: when the setup differs from what the session last received, and is
+  // not the default a fresh session already assumes, the lead gets the note without the user opening the Team tab.
+  createKeyed(
+    () => {
+      const session = ctx.sessions.current()
+      const sent = session ? ctx.stores.teamSent(session) : undefined
+      const agents = session?.server.data.location.agent.list({ directory: session.directory })
+
+      if (!session || !sent?.ready() || !agents?.length) return undefined
+
+      return setupDue(sent.value?.setup ?? "") ? { session, key: setupKey(), members: teamMembers(agents) } : undefined
+    },
+    (due) => {
+      if (due) void apply(due.session, due.members)
+    },
+    { equals: (previous, next) => previous?.session.key === next?.session.key && previous?.key === next?.key },
+  )
 
   // Syncs the side layout with the session's plans: opens the Plans tab, without moving the user, when the routed
   // session gets a new plan. The first look at a session only records its count, so revisiting it reopens nothing.

@@ -11,6 +11,8 @@ export const TeamSettings = Schema.Struct({
 export default Plugin.define({
   stores: {
     team: Store.global(TeamSettings, { enabled: true, off: [] }),
+    // The team setup each session last received, so a session is told once per change, also across restarts.
+    teamSent: Store.session(Schema.Struct({ setup: Schema.String }), { setup: "" }),
   },
   i18n: { en },
 })
