@@ -1,6 +1,9 @@
-// The sidecar password never crosses into the renderer; the main process adds it to sidecar requests.
+// Under Electron the sidecar password never crosses into the renderer; the main process adds it to sidecar
+// requests. The Tauri shell (packages/desktop-tauri) cannot rewrite request headers, so it hands the password over
+// and the app authenticates like it does against any password-protected server.
 export type ServerReadyData = {
   url: string
+  password?: string
 }
 
 export type TitlebarTheme = {

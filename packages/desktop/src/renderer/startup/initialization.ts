@@ -13,7 +13,8 @@ export function localServerStartupError(cause: unknown) {
 // The main process adds Authorization to sidecar requests (`wireRendererHeaders`); the renderer never
 // holds the password, and its GETs carry only CORS-safelisted headers so they skip the preflight.
 export function sidecarHttp(data: SidecarData) {
-  return { url: data.url }
+  // Only the Tauri shell sends a password; see ServerReadyData.
+  return data.password ? { url: data.url, password: data.password } : { url: data.url }
 }
 
 export function createSidecarResolver(input: {
