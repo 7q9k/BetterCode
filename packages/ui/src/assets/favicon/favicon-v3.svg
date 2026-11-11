@@ -1,7 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="512" height="512" fill="#131010"></rect>
-<path d="M320 224V352H192V224H320Z" fill="#5A5858"></path>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="white"></path>
-</svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
-@media (prefers-color-scheme: dark) { :root { filter: none; } }
-</style></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#272727"/>
+      <stop offset="1" stop-color="#0f0f0f"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="431.18" x2="0" y2="611.66" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="reflection"><rect x="0" y="0" width="512" height="512" fill="url(#fade)"/></mask>
+    <clipPath id="tile"><rect x="10.24" y="10.24" width="491.52" height="491.52" rx="110.592"/></clipPath>
+  </defs>
+  <rect x="10.24" y="10.24" width="491.52" height="491.52" rx="110.592" fill="url(#bg)"/>
+  <g clip-path="url(#tile)" fill="#ffffff" font-family="Consolas, 'Cascadia Mono', monospace" font-size="19.46" text-anchor="middle" dominant-baseline="central"></g>
+  <g fill="#ffffff" mask="url(#reflection)" opacity="0.28">
+    <path d="M202.92 537.35h53.08v53.08h-53.08ZM256.00 537.35h53.08v53.08h-53.08ZM202.92 484.26h53.08v53.08h-53.08ZM256.00 484.26h53.08v53.08h-53.08Z" fill-opacity="0.22"/>
+    <path d="M149.83 696.60h53.08v53.08h-53.08ZM149.83 643.51h53.08v53.08h-53.08ZM202.92 643.51h53.08v53.08h-53.08ZM256.00 643.51h53.08v53.08h-53.08ZM309.08 643.51h53.08v53.08h-53.08ZM149.83 590.43h53.08v53.08h-53.08ZM309.08 590.43h53.08v53.08h-53.08ZM149.83 537.35h53.08v53.08h-53.08ZM309.08 537.35h53.08v53.08h-53.08ZM149.83 484.26h53.08v53.08h-53.08ZM309.08 484.26h53.08v53.08h-53.08ZM149.83 431.18h53.08v53.08h-53.08ZM202.92 431.18h53.08v53.08h-53.08ZM256.00 431.18h53.08v53.08h-53.08ZM309.08 431.18h53.08v53.08h-53.08Z"/>
+  </g>
+  <g fill="#ffffff">
+    <path d="M202.92 256.00h53.08v53.08h-53.08ZM256.00 256.00h53.08v53.08h-53.08ZM202.92 309.08h53.08v53.08h-53.08ZM256.00 309.08h53.08v53.08h-53.08Z" fill-opacity="0.22"/>
+    <path d="M149.83 96.75h53.08v53.08h-53.08ZM149.83 149.83h53.08v53.08h-53.08ZM202.92 149.83h53.08v53.08h-53.08ZM256.00 149.83h53.08v53.08h-53.08ZM309.08 149.83h53.08v53.08h-53.08ZM149.83 202.92h53.08v53.08h-53.08ZM309.08 202.92h53.08v53.08h-53.08ZM149.83 256.00h53.08v53.08h-53.08ZM309.08 256.00h53.08v53.08h-53.08ZM149.83 309.08h53.08v53.08h-53.08ZM309.08 309.08h53.08v53.08h-53.08ZM149.83 362.17h53.08v53.08h-53.08ZM202.92 362.17h53.08v53.08h-53.08ZM256.00 362.17h53.08v53.08h-53.08ZM309.08 362.17h53.08v53.08h-53.08Z"/>
+  </g>
+  <rect x="10.74" y="10.74" width="490.52" height="490.52" rx="110.592" fill="none" stroke="#ffffff" stroke-opacity="0.1"/>
+</svg>
