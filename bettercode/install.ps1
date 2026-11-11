@@ -4,7 +4,7 @@
 #   irm https://github.com/7q9k/BetterCode/releases/latest/download/install.ps1 | iex
 #
 # Options come from environment variables, since `iex` takes no arguments:
-#   $env:BETTERCODE_VERSION = "2.3.0"   install a specific version
+#   $env:BETTERCODE_VERSION = "0.0.1"   install a specific version
 #   $env:BETTERCODE_NO_DESKTOP = "1"    install only the bettercode command
 
 $ErrorActionPreference = "Stop"

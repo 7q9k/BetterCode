@@ -22,7 +22,7 @@ Usage: install [options]
 
 Options:
     -h, --help              Display this help message
-    -v, --version <version> Install a specific version (e.g. 2.3.0)
+    -v, --version <version> Install a specific version (e.g. 0.0.1)
     -b, --binary <path>     Install the command from a local binary instead of downloading
         --no-desktop        Install only the bettercode command, not the desktop app
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)

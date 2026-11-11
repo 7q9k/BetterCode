@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, without the v (e.g. 2.3.0)"
+        description: "Version to release, without the v (e.g. 0.0.1)"
         required: true
         type: string
 
@@ -35,7 +35,7 @@ jobs:
     steps:
       - name: Check version
         run: |
-          [[ "$OPENCODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 2.3.0, got '$OPENCODE_VERSION'"; exit 1; }
+          [[ "$OPENCODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 0.0.1, got '$OPENCODE_VERSION'"; exit 1; }
       - name: Check out
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:

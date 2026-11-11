@@ -37,7 +37,7 @@ bettercode
 | Option | bash | PowerShell |
 | --- | --- | --- |
 | Only the `bettercode` command, no desktop app | `\| bash -s -- --no-desktop` | `$env:BETTERCODE_NO_DESKTOP = "1"` |
-| A specific version | `\| bash -s -- --version 2.3.0` | `$env:BETTERCODE_VERSION = "2.3.0"` |
+| A specific version | `\| bash -s -- --version 0.0.1` | `$env:BETTERCODE_VERSION = "0.0.1"` |
 
 Every release also lists the single files (command archives, macOS app bundles, Windows installer, `.AppImage`, `.deb`, `.rpm`) on the [releases page](https://github.com/7q9k/BetterCode/releases/latest).
 
@@ -57,7 +57,7 @@ BetterCode keeps its own configuration, sessions and background service (`~/.con
 
 ### Releases
 
-Maintainers publish a release by running the **bettercode-release** workflow (Actions → bettercode-release → Run workflow) with a version such as `2.3.0`. It builds the command for every platform and the desktop app, and publishes them with both installers as the GitHub release `v2.3.0`.
+Maintainers publish a release by running the **bettercode-release** workflow (Actions → bettercode-release → Run workflow) with a version such as `0.0.1`. It builds the command for every platform and the desktop app, and publishes them with both installers as the GitHub release `v0.0.1`.
 
 ---
 
