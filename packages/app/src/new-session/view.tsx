@@ -42,7 +42,7 @@ import {
 } from "./workspace/checkout-machine"
 import { NewSessionBranch } from "./workspace/selector"
 import { AsciiBackdrop } from "./ascii-backdrop"
-import { NewSessionHero, NewSessionSuggestions } from "./hero"
+import { NewSessionHero } from "./hero"
 
 const providerTipDismissalDuration = 30 * 24 * 60 * 60 * 1000
 
@@ -59,7 +59,6 @@ export function NewSessionView(props: {
   project: PromptProjectController
   workspace: NewSessionWorkspaceController
   location: ReturnType<typeof useNewSessionLocationDialog>
-  onSuggestion: (text: string) => void
 }) {
   const [onboarding, setOnboarding, , onboardingReady] = persisted(
     Persist.global("workspace-onboarding"),
@@ -79,7 +78,7 @@ export function NewSessionView(props: {
     <div class="@container relative flex flex-col min-h-0 h-full flex-1">
       <div
         data-component="new-session"
-        class="relative isolate flex-1 min-h-0 overflow-hidden rounded-[10px] bg-v2-background-bg-deep shadow-[var(--v2-elevation-raised)]"
+        class="relative isolate flex-1 min-h-0 overflow-hidden bg-v2-background-bg-deep"
       >
         <ComposerDropzone
           active={props.composer.state.drag === "active"}
@@ -123,7 +122,6 @@ export function NewSessionView(props: {
               <Show when={props.project.empty()}>
                 <PromptProjectAddButton controller={props.project} />
               </Show>
-              <NewSessionSuggestions onSelect={props.onSuggestion} />
             </div>
           </div>
         </div>

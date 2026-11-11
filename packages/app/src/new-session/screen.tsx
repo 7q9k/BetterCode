@@ -11,6 +11,7 @@ import { NewSessionView } from "./view"
 import { createNewSessionWorkspaceController } from "./workspace/controller"
 import { useNewSessionCommands } from "./commands"
 import { createDraftMcpControls } from "./mcp"
+import { requestWarp } from "@/shell/warp"
 
 /** The draft-only Session page. Submitting promotes the draft into a real Session. */
 export default function NewSessionPage(props: { draftId: string }) {
@@ -46,7 +47,11 @@ export default function NewSessionPage(props: { draftId: string }) {
     worktree: workspace.selection.value,
     root: workspace.project.root,
     branch: workspace.bar.branch,
-    submitted: workspace.selection.remember,
+    // Sending from the start screen jumps into coding with the ASCII warp.
+    submitted: () => {
+      workspace.selection.remember()
+      requestWarp()
+    },
     mcp,
     start,
   })
@@ -99,31 +104,9 @@ export default function NewSessionPage(props: { draftId: string }) {
   return (
     <div class="relative size-full overflow-hidden flex flex-col">
       {suspendUntilPromptReady()}
-      <div class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
-        <NewSessionView
-          composer={model}
-          project={project}
-          workspace={workspace}
-          location={location}
-          onSuggestion={(text) => {
-            // Type into the editor like the user would, so its own input handling runs and a slash command
-            // opens the command menu. Fall back to writing the draft when the editor is not mounted.
-            const editor = document.querySelector<HTMLElement>(
-              '[data-component="new-session"] [contenteditable="true"][role="textbox"]',
-            )
-
-            if (editor) {
-              editor.focus()
-              document.execCommand("selectAll")
-              document.execCommand("insertText", false, text)
-
-              return
-            }
-
-            composer.adapter.state.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-            model.restoreFocus()
-          }}
-        />
+      {/* Edge to edge: the start screen has no card frame, so the ASCII scene fills the window below the tabs. */}
+      <div class="flex-1 min-h-0 flex flex-col">
+        <NewSessionView composer={model} project={project} workspace={workspace} location={location} />
       </div>
     </div>
   )
