@@ -151,7 +151,11 @@ export type Platform = PlatformBase &
       }
   )
 
-export const { use: usePlatform, provider: PlatformProvider } = createSimpleContext({
+export const {
+  use: usePlatform,
+  provider: PlatformProvider,
+  context: PlatformContext,
+} = createSimpleContext({
   name: "Platform",
   init: (props: { value: Platform }) => {
     return props.value

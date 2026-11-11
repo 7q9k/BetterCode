@@ -670,6 +670,16 @@ export function createComposerEditor(input: {
     },
     quoteComment,
     focusQuotePrompt: () => restoreFocus(),
+    // Puts outside text, such as a dictation, at the caret as typing would, with a space before it when needed.
+    insertText(value: string) {
+      const before = draft.state.prompt
+        .map((part) => ("content" in part ? part.content : ""))
+        .join("")
+        .slice(0, draft.state.cursor)
+
+      draft.addText(before && !/\s$/.test(before) ? ` ${value}` : value)
+      restoreFocus()
+    },
     commentQuote(id: string, comment: string) {
       const item = draft.state.context.items.find((entry) => entry.key === id)
 

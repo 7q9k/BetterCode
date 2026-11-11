@@ -60,6 +60,7 @@ import { QuoteCommentEditor } from "./quote-comment"
 import { selectQuoteCommentView, type QuoteCommentController } from "../quote-comment-machine"
 import "../attachments/attachments.css"
 import "./editor.css"
+import { DictationButton } from "@/dictation/dictation-button"
 import "@/shell/palette-menu.css"
 
 const MobilePanelDrawer = lazy(async () => {
@@ -510,6 +511,9 @@ export function ComposerEditor(props: ComposerEditorProps) {
           </div>
           <Show when={!touch()}>
             <div data-slot="composer-actions" class="flex shrink-0 items-center">
+              <Show when={mode() === "normal" && !view.draftOnly}>
+                <DictationButton onText={props.controller.insertText} />
+              </Show>
               <Show when={mode() === "normal"}>
                 <ComposerEditorAlternateDelivery
                   controller={props.controller}

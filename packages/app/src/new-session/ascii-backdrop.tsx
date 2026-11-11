@@ -1,5 +1,6 @@
 import { prefersReducedMotion } from "@opencode/ui/motion"
-import { onCleanup, onMount } from "solid-js"
+import { createEffect, onCleanup, onMount } from "solid-js"
+import type { SessionMessageInfo } from "@opencode/client/promise"
 
 // The ASCII scene behind Home: a turning ringed planet with a moon, a drifting landscape along the bottom, twinkling
 // stars and the odd shooting star. Brightness maps onto this ramp from faint to dense.
@@ -80,8 +81,9 @@ export function AsciiBackdrop() {
     }
 
     const level = (value: number) =>
-      ASCII_RAMP[Math.min(ASCII_RAMP.length - 1, Math.floor(Math.max(0, Math.min(1, value)) * (ASCII_RAMP.length - 1)))] ??
-      " "
+      ASCII_RAMP[
+        Math.min(ASCII_RAMP.length - 1, Math.floor(Math.max(0, Math.min(1, value)) * (ASCII_RAMP.length - 1)))
+      ] ?? " "
 
     const draw = (time: number) => {
       const { width, height, cols, rows, cellWidth } = layout
@@ -223,7 +225,13 @@ export function AsciiBackdrop() {
 
           if (seed < STAR_DENSITY) {
             const twinkle = 0.5 + 0.5 * Math.sin(t * 1.5 + seed * 900)
-            put(seed < STAR_DENSITY * 0.15 ? "+" : twinkle > 0.8 ? "*" : ".", px, py, (0.14 + 0.3 * twinkle) * fade, 235)
+            put(
+              seed < STAR_DENSITY * 0.15 ? "+" : twinkle > 0.8 ? "*" : ".",
+              px,
+              py,
+              (0.14 + 0.3 * twinkle) * fade,
+              235,
+            )
           } else if (halo > 0 && seed < 0.05 + halo * 0.25) {
             put(level(halo * 0.22), px, py, (0.1 + halo * 0.12) * fade, 200)
           }
@@ -258,7 +266,11 @@ export function AsciiBackdrop() {
   })
 
   return (
-    <div aria-hidden="true" data-component="ascii-backdrop" class="pointer-events-none absolute inset-0 overflow-hidden">
+    <div
+      aria-hidden="true"
+      data-component="ascii-backdrop"
+      class="pointer-events-none absolute inset-0 overflow-hidden"
+    >
       <canvas ref={canvas} class="absolute inset-0 size-full" />
       <div class="absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_45%,rgba(17,17,17,0.55)_100%)]" />
     </div>
@@ -270,11 +282,45 @@ const GROUND_HEIGHT = 260
 // Rows the landscape is lifted by, so its ridge shows above the composer that covers the bottom of the session.
 const GROUND_LIFT = 7
 
+// How fast the scene eases from one activity into the next, per second.
+const GROUND_EASE = 2.5
+
+// Characters the writing cursor leaves along the horizon, as if it typed code into the landscape.
+const GROUND_GLYPHS = "abcdefghijklmnopqrstuvwxyz{}()[];=<>/+-*&|.:_"
+
+// How many columns the writing cursor's trail stays lit behind it.
+const WRITING_TRAIL = 42
+
+/** What the model is doing now, for the ground's animation. */
+export type GroundActivity = "idle" | "thinking" | "writing" | "tool"
+
+/**
+ * Reads the model's current activity from a session: idle when it is not running, otherwise what the newest part of the
+ * newest assistant message is. Between steps, or before the first part streams, the model is thinking.
+ */
+export function groundActivity(working: boolean, messages: readonly SessionMessageInfo[]): GroundActivity {
+  if (!working) return "idle"
+
+  const last = messages.findLast((message) => message.type === "assistant")
+
+  if (last?.type !== "assistant" || last.time.completed !== undefined) return "thinking"
+
+  const part = last.content.at(-1)
+
+  if (part?.type === "text") return "writing"
+
+  if (part?.type === "tool") return "tool"
+
+  return "thinking"
+}
+
 /**
  * The coding view's share of the ASCII scene: the landscape along the bottom of the session, behind the composer, with
- * a few stars above it. It is drawn once per size, never animates, and stays faint so the timeline above reads clearly.
+ * a few stars above it. It stays still and faint while the model is idle and comes alive while it works: thoughts rise
+ * from the ridge while it thinks, a cursor writes along the horizon while it writes, and the ground drifts and throws
+ * sparks while it runs tools. One activity eases into the next, and reduced motion keeps it still.
  */
-export function AsciiGround() {
+export function AsciiGround(props: { activity: GroundActivity }) {
   let canvas!: HTMLCanvasElement
 
   onMount(() => {
@@ -283,27 +329,52 @@ export function AsciiGround() {
     if (!context) return
 
     const font = getComputedStyle(canvas).getPropertyValue("--font-family-mono").trim()
+    const reduced = prefersReducedMotion()
+    const layout = { width: 0, height: 0, cols: 0, rows: 0, cellWidth: 0 }
+    // How much of each activity shows now, eased toward the current one, and how far the ridges have drifted.
+    const scene = { thinking: 0, writing: 0, tool: 0, shift: 0 }
+    const clock = { frame: 0, last: 0, running: false }
 
-    const draw = () => {
+    const resize = () => {
       const rect = canvas.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       canvas.width = Math.round(rect.width * dpr)
       canvas.height = Math.round(rect.height * dpr)
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      context.clearRect(0, 0, rect.width, rect.height)
       context.font = `${CELL_HEIGHT - 3}px ${font}`
       context.textBaseline = "middle"
       context.textAlign = "center"
-      const cellWidth = Math.max(7, context.measureText("M").width + 1)
-      const cols = Math.ceil(rect.width / cellWidth)
-      const rows = Math.ceil(rect.height / CELL_HEIGHT)
+      layout.width = rect.width
+      layout.height = rect.height
+      layout.cellWidth = Math.max(7, context.measureText("M").width + 1)
+      layout.cols = Math.ceil(rect.width / layout.cellWidth)
+      layout.rows = Math.ceil(rect.height / CELL_HEIGHT)
+    }
 
-      const put = (char: string, col: number, row: number, alpha: number) => {
-        if (char === " ") return
+    const put = (char: string, col: number, row: number, alpha: number) => {
+      if (char === " " || alpha <= 0.004) return
 
-        context.fillStyle = `rgba(220,220,220,${alpha.toFixed(3)})`
-        context.fillText(char, col * cellWidth + cellWidth / 2, row * CELL_HEIGHT + CELL_HEIGHT / 2)
-      }
+      context.fillStyle = `rgba(220,220,220,${Math.min(1, alpha).toFixed(3)})`
+      context.fillText(char, col * layout.cellWidth + layout.cellWidth / 2, row * CELL_HEIGHT + CELL_HEIGHT / 2)
+    }
+
+    const level = (value: number) =>
+      ASCII_RAMP[
+        Math.min(ASCII_RAMP.length - 1, Math.floor(Math.max(0, Math.min(1, value)) * (ASCII_RAMP.length - 1)))
+      ] ?? " "
+
+    const draw = (t: number) => {
+      const { cols, rows } = layout
+      context.clearRect(0, 0, layout.width, layout.height)
+      const think = scene.thinking
+      const write = scene.writing
+      const tool = scene.tool
+      const energy = Math.min(1, think + write + tool)
+      const nearShift = scene.shift * 0.6
+      const farShift = scene.shift * 0.25
+      // The writing cursor runs left to right along the horizon and starts over past the right edge.
+      const cursor = (t * 16) % (cols + WRITING_TRAIL)
+      const pass = Math.floor((t * 16) / (cols + WRITING_TRAIL))
 
       for (let row = 0; row < rows; row++) {
         const fromBottom = rows - 1 - row - GROUND_LIFT
@@ -311,29 +382,119 @@ export function AsciiGround() {
         const rise = Math.min(1, row / (rows * 0.6))
 
         for (let col = 0; col < cols; col++) {
-          const near = ridge(col, 0, false)
-          const far = ridge(col, 0, true)
-          const grain = hash(col, row)
+          const near = ridge(col, nearShift, false)
+          const far = ridge(col, farShift, true)
+          const grain = hash(col + Math.floor(nearShift), row)
 
           if (fromBottom < near) {
             const depth = (near - fromBottom) / near
-            const index = Math.min(ASCII_RAMP.length - 1, Math.floor((0.3 + depth * 0.45 + grain * 0.15) * (ASCII_RAMP.length - 1)))
-            put(ASCII_RAMP[index] ?? " ", col, row, (0.025 + depth * 0.045) * rise)
-          } else if (fromBottom < far) {
-            if (grain < 0.5) put(".", col, row, 0.04 * rise)
+            // Thinking breathes through the ground as a slow wave; tools send a fast pulse through it.
+            const breath = think * (0.5 + 0.5 * Math.sin(t * 1.6 - col * 0.05))
+            const pulse = tool * Math.max(0, 1 - Math.abs(((col - t * 42) % 70) + (col - t * 42 < 0 ? 70 : 0) - 35) / 3)
+            const churn = tool > 0.05 ? hash(col, row + Math.floor(t * 6)) * tool * 0.2 : 0
+            const char = pulse > 0.3 ? "#" : level(0.3 + depth * 0.45 + grain * 0.15 + churn)
+            put(char, col, row, ((0.025 + depth * 0.045) * (1 + energy * 0.7 + breath * 1.6) + pulse * 0.16) * rise)
+
+            continue
+          }
+
+          const above = fromBottom - near
+
+          // Writing: the row just above the near ridge fills with code as the cursor passes, then fades behind it.
+          if (write > 0.02 && above < 1) {
+            const behind = cursor - col
+
+            if (behind >= 0 && behind < WRITING_TRAIL) {
+              const glyph = GROUND_GLYPHS[Math.floor(hash(col, pass * 31) * GROUND_GLYPHS.length)] ?? "."
+              const head = behind < 1
+              const blink = Math.sin(t * 9) > 0 ? "|" : "_"
+              put(head ? blink : glyph, col, row, write * (head ? 0.5 : 0.3 * (1 - behind / WRITING_TRAIL)) * rise)
+
+              continue
+            }
+          }
+
+          // Thinking: thoughts rise from the ridge in a few columns, growing fainter as they climb.
+          if (think > 0.02 && hash(col, 17) < 0.07) {
+            const seed = hash(col, 29)
+            const climb = (t * (0.08 + seed * 0.1) + seed * 7) % 1
+            const height = climb * (rows - GROUND_LIFT - near)
+
+            if (Math.abs(above - height) < 0.5) {
+              put(climb < 0.3 ? "o" : climb < 0.65 ? "." : "'", col, row, think * 0.26 * (1 - climb) * rise)
+
+              continue
+            }
+          }
+
+          // Tools: sparks kick up from the ground and fall back within a few frames.
+          if (tool > 0.02 && above < 4) {
+            const spark = hash(col, Math.floor(t * 7) + row * 13)
+
+            if (spark < 0.02 * tool) {
+              put(spark < 0.006 ? "*" : "+", col, row, tool * (0.3 - above * 0.05) * rise)
+
+              continue
+            }
+          }
+
+          if (fromBottom < far) {
+            if (grain < 0.5) put(".", col, row, 0.04 * (1 + energy * 0.5) * rise)
           } else if (fromBottom < far + 0.9) {
-            put("_", col, row, 0.05 * rise)
+            put("_", col, row, 0.05 * (1 + energy * 0.5) * rise)
           } else if (grain < 0.012) {
-            put(grain < 0.003 ? "+" : ".", col, row, 0.08 * rise)
+            const twinkle = energy * (0.5 + 0.5 * Math.sin(t * 2 + grain * 900))
+            put(grain < 0.003 ? "+" : ".", col, row, (0.08 + twinkle * 0.1) * rise)
           }
         }
       }
     }
 
-    const observer = new ResizeObserver(draw)
+    const tick = (time: number) => {
+      clock.frame = requestAnimationFrame(tick)
+
+      if (document.hidden || time - clock.last < FRAME_MS) return
+
+      const dt = Math.min(0.1, (time - clock.last) / 1000)
+      clock.last = time
+      const ease = Math.min(1, dt * GROUND_EASE)
+      scene.thinking += ((props.activity === "thinking" ? 1 : 0) - scene.thinking) * ease
+      scene.writing += ((props.activity === "writing" ? 1 : 0) - scene.writing) * ease
+      scene.tool += ((props.activity === "tool" ? 1 : 0) - scene.tool) * ease
+      scene.shift += dt * (scene.thinking * 0.4 + scene.writing * 0.9 + scene.tool * 3.2)
+      draw(time / 1000)
+
+      // Back at rest: draw the still scene once and stop the loop until the model works again.
+      if (props.activity === "idle" && scene.thinking + scene.writing + scene.tool < 0.01) {
+        cancelAnimationFrame(clock.frame)
+        clock.running = false
+        scene.thinking = 0
+        scene.writing = 0
+        scene.tool = 0
+        draw(time / 1000)
+      }
+    }
+
+    createEffect(() => {
+      if (props.activity === "idle" || reduced || clock.running) return
+
+      clock.running = true
+      clock.last = performance.now()
+      clock.frame = requestAnimationFrame(tick)
+    })
+
+    const observer = new ResizeObserver(() => {
+      resize()
+      draw(performance.now() / 1000)
+    })
+
     observer.observe(canvas)
-    draw()
-    onCleanup(() => observer.disconnect())
+    resize()
+    draw(performance.now() / 1000)
+    onCleanup(() => {
+      cancelAnimationFrame(clock.frame)
+      observer.disconnect()
+    })
   })
 
   return (
