@@ -16,7 +16,17 @@ export function startSidecarProbe() {
   const version = CHANNEL === "beta" ? undefined : bundledVersion()
 
   if (version === "") return
-  probe = import("@opencode/client/service").then(({ Service }) => Service.discover({ version })).catch(() => undefined)
+
+  // The bundled BetterCode CLI registers under its own state folder, as in background-service.ts.
+  const file = path.join(
+    process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state"),
+    "bettercode",
+    "service.json",
+  )
+
+  probe = import("@opencode/client/service")
+    .then(({ Service }) => Service.discover({ version, file }))
+    .catch(() => undefined)
 }
 
 /** The probe's result, once: a later connect must not adopt a service that may have exited since boot. */

@@ -108,14 +108,16 @@ const prepare = Effect.fn("BackgroundService.prepare")(function* (mode: Backgrou
   if (isolated) process.env.XDG_STATE_HOME = app.getPath("userData")
   const client = yield* Effect.promise(() => import("@opencode/client/service"))
 
+  const state = process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state")
+
+  // The packaged app bundles a BetterCode release CLI, which registers under its own state folder (see
+  // OPENCODE_APP_NAME in packages/cli/script/build.ts); the client's default path names the upstream folder.
   const file =
     process.env.OPENCODE_DESKTOP_SERVER_CHANNEL === "local"
-      ? path.join(
-          process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state"),
-          "opencode",
-          "service-local.json",
-        )
-      : undefined
+      ? path.join(state, "opencode", "service-local.json")
+      : app.isPackaged
+        ? path.join(state, "bettercode", "service.json")
+        : undefined
 
   return { cli, client, file, isolated, version }
 })
