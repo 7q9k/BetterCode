@@ -11,7 +11,6 @@ import { NewSessionView } from "./view"
 import { createNewSessionWorkspaceController } from "./workspace/controller"
 import { useNewSessionCommands } from "./commands"
 import { createDraftMcpControls } from "./mcp"
-import { requestWarp } from "@/shell/warp"
 
 /** The draft-only Session page. Submitting promotes the draft into a real Session. */
 export default function NewSessionPage(props: { draftId: string }) {
@@ -47,11 +46,7 @@ export default function NewSessionPage(props: { draftId: string }) {
     worktree: workspace.selection.value,
     root: workspace.project.root,
     branch: workspace.bar.branch,
-    // Sending from the start screen jumps into coding with the ASCII warp.
-    submitted: () => {
-      workspace.selection.remember()
-      requestWarp()
-    },
+    submitted: workspace.selection.remember,
     mcp,
     start,
   })

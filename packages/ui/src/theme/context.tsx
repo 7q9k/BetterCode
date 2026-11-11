@@ -65,7 +65,7 @@ function knownThemes() {
 
 const names = new Map(
   Object.entries({
-    "oc-2": "0x539",
+    "oc-2": "Better",
     amoled: "AMOLED",
     aura: "Aura",
     ayu: "Ayu",

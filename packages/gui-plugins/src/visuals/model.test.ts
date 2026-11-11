@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { chartTicks, collectPlans, layoutPlan, parseChart, parsePlan } from "./model"
+import { chartTicks, collectPlans, layoutPlan, parseChart, parsePlan, planMarkdown, planProgress } from "./model"
 
 describe("parsePlan", () => {
   test.each([["not json"], ["{}"], ['{"nodes": []}'], ['{"nodes": [{"label": "no id"}]}']])(
@@ -88,5 +88,45 @@ describe("parseChart", () => {
 
   test("rounds the axis up to a readable step", () => {
     expect(chartTicks(87)).toEqual({ top: 100, ticks: [0, 25, 50, 75, 100] })
+  })
+})
+
+describe("planProgress", () => {
+  const plan = (statuses: readonly string[]) =>
+    parsePlan(JSON.stringify(statuses.map((status, index) => ({ id: `T${index}`, status }))))!
+
+  test.each([
+    { statuses: ["planned", "planned"], finished: 0, runnable: true },
+    { statuses: ["verified", "running", "planned"], finished: 1, runnable: false },
+    { statuses: ["done", "verified"], finished: 2, runnable: false },
+    { statuses: ["done", "failed"], finished: 1, runnable: false },
+  ])("$statuses: $finished finished, runnable $runnable", ({ statuses, finished, runnable }) => {
+    const progress = planProgress(plan(statuses))
+    expect([progress.finished, progress.total, progress.runnable]).toEqual([finished, statuses.length, runnable])
+  })
+})
+
+describe("planMarkdown", () => {
+  test("writes a checklist with owner, order, check and unusual statuses", () => {
+    const plan = parsePlan(
+      JSON.stringify({
+        title: "Ship",
+        nodes: [
+          { id: "T1", label: "Build", status: "verified", agent: "tester", check: "bun test" },
+          { id: "T2", label: "Review", deps: ["T1"], status: "running", owner: "reviewer" },
+          { id: "T3", label: "Later" },
+        ],
+      }),
+    )!
+
+    expect(planMarkdown(plan)).toBe(
+      [
+        "## Ship",
+        "",
+        "- [x] **T1** Build (agent: tester; check: `bun test`; verified)",
+        "- [ ] **T2** Review (agent: reviewer; after T1; running)",
+        "- [ ] **T3** Later",
+      ].join("\n"),
+    )
   })
 })

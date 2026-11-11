@@ -19,9 +19,9 @@ describe("contrast icon-button tokens", () => {
   test("OC-2 dark mode uses a light background and an inverse icon matching the base surface", () => {
     const tokens = resolveThemeV2(theme).dark
     expect(tokens["v2-background-bg-icon-button-contrast"]).toBe("var(--v2-grey-400)")
-    expect(tokens["v2-grey-400"]).toBe("#dbdbdbff")
+    expect(tokens["v2-grey-400"]).toBe("#b0b0b0ff")
     expect(tokens["v2-icon-icon-inverse"]).toBe(tokens["v2-background-bg-base"])
-    expect(tokens["v2-grey-1100"]).toBe("#161616ff")
+    expect(tokens["v2-grey-1100"]).toBe("#171717ff")
     expect(tokens["v2-background-bg-contrast"]).toBe("var(--v2-grey-700)")
     expect(tokens["v2-text-text-contrast"]).toBe("var(--v2-grey-50)")
   })

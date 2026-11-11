@@ -264,3 +264,85 @@ export function AsciiBackdrop() {
     </div>
   )
 }
+
+const GROUND_HEIGHT = 260
+
+// Rows the landscape is lifted by, so its ridge shows above the composer that covers the bottom of the session.
+const GROUND_LIFT = 7
+
+/**
+ * The coding view's share of the ASCII scene: the landscape along the bottom of the session, behind the composer, with
+ * a few stars above it. It is drawn once per size, never animates, and stays faint so the timeline above reads clearly.
+ */
+export function AsciiGround() {
+  let canvas!: HTMLCanvasElement
+
+  onMount(() => {
+    const context = canvas.getContext("2d")
+
+    if (!context) return
+
+    const font = getComputedStyle(canvas).getPropertyValue("--font-family-mono").trim()
+
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect()
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = Math.round(rect.width * dpr)
+      canvas.height = Math.round(rect.height * dpr)
+      context.setTransform(dpr, 0, 0, dpr, 0, 0)
+      context.clearRect(0, 0, rect.width, rect.height)
+      context.font = `${CELL_HEIGHT - 3}px ${font}`
+      context.textBaseline = "middle"
+      context.textAlign = "center"
+      const cellWidth = Math.max(7, context.measureText("M").width + 1)
+      const cols = Math.ceil(rect.width / cellWidth)
+      const rows = Math.ceil(rect.height / CELL_HEIGHT)
+
+      const put = (char: string, col: number, row: number, alpha: number) => {
+        if (char === " ") return
+
+        context.fillStyle = `rgba(220,220,220,${alpha.toFixed(3)})`
+        context.fillText(char, col * cellWidth + cellWidth / 2, row * CELL_HEIGHT + CELL_HEIGHT / 2)
+      }
+
+      for (let row = 0; row < rows; row++) {
+        const fromBottom = rows - 1 - row - GROUND_LIFT
+        // Fades in from the top of the strip so it has no hard edge.
+        const rise = Math.min(1, row / (rows * 0.6))
+
+        for (let col = 0; col < cols; col++) {
+          const near = ridge(col, 0, false)
+          const far = ridge(col, 0, true)
+          const grain = hash(col, row)
+
+          if (fromBottom < near) {
+            const depth = (near - fromBottom) / near
+            const index = Math.min(ASCII_RAMP.length - 1, Math.floor((0.3 + depth * 0.45 + grain * 0.15) * (ASCII_RAMP.length - 1)))
+            put(ASCII_RAMP[index] ?? " ", col, row, (0.025 + depth * 0.045) * rise)
+          } else if (fromBottom < far) {
+            if (grain < 0.5) put(".", col, row, 0.04 * rise)
+          } else if (fromBottom < far + 0.9) {
+            put("_", col, row, 0.05 * rise)
+          } else if (grain < 0.012) {
+            put(grain < 0.003 ? "+" : ".", col, row, 0.08 * rise)
+          }
+        }
+      }
+    }
+
+    const observer = new ResizeObserver(draw)
+    observer.observe(canvas)
+    draw()
+    onCleanup(() => observer.disconnect())
+  })
+
+  return (
+    <canvas
+      ref={canvas}
+      aria-hidden="true"
+      data-component="ascii-ground"
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-[1] w-full"
+      style={{ height: `${GROUND_HEIGHT}px` }}
+    />
+  )
+}

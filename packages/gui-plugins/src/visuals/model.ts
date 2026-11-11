@@ -10,6 +10,7 @@ export type PlanNode = {
   readonly label: string
   readonly deps: readonly string[]
   readonly status: PlanStatus
+  readonly agent?: string
   readonly model?: string
   readonly category?: string
   readonly effort?: string
@@ -79,6 +80,8 @@ const NodeInput = Schema.Struct({
   depends_on: Names,
   dependsOn: Names,
   status: Text,
+  agent: Text,
+  owner: Text,
   model: Text,
   category: Text,
   effort: Text,
@@ -141,6 +144,7 @@ function node(item: typeof NodeInput.Type): PlanNode[] {
       label: clean(item.label) ?? clean(item.title) ?? clean(item.task) ?? id,
       deps: names(item.deps ?? item.depends_on ?? item.dependsOn),
       status: status(item.status),
+      agent: clean(item.agent ?? item.owner),
       model: clean(item.model),
       category: clean(item.category),
       effort: clean(item.effort),
@@ -168,6 +172,45 @@ export function parsePlan(source: string): Plan | undefined {
   }
 }
 
+
+/** How far a plan is: finished tasks of all, and whether a Run would have work (planned tasks, none running). */
+export function planProgress(plan: Plan) {
+  const total = plan.nodes.length
+  const finished = plan.nodes.filter((node) => node.status === "done" || node.status === "verified").length
+  const running = plan.nodes.some((node) => node.status === "running")
+
+  return {
+    total,
+    finished,
+    ratio: total ? finished / total : 0,
+    runnable: !running && plan.nodes.some((node) => node.status === "planned"),
+  }
+}
+
+const CHECKBOX: Record<PlanStatus, string> = {
+  planned: "[ ]",
+  running: "[ ]",
+  blocked: "[ ]",
+  failed: "[ ]",
+  done: "[x]",
+  verified: "[x]",
+}
+
+/** The plan as a Markdown checklist, for pasting into an issue or a PR: one line per task with its details. */
+export function planMarkdown(plan: Plan) {
+  const lines = plan.nodes.map((node) => {
+    const details = [
+      node.agent && `agent: ${node.agent}`,
+      node.deps.length > 0 && `after ${node.deps.join(", ")}`,
+      node.check && `check: \`${node.check}\``,
+      node.status !== "planned" && node.status !== "done" && node.status,
+    ].filter(Boolean)
+
+    return `- ${CHECKBOX[node.status]} **${node.id}** ${node.label}${details.length ? ` (${details.join("; ")})` : ""}`
+  })
+
+  return [...(plan.title ? [`## ${plan.title}`, ""] : []), ...lines].join("\n")
+}
 
 const PLAN_FENCE = /^ {0,3}(`{3,}|~{3,})[ \t]*(plan|dag|plan-graph)\b[^\n]*\n([\s\S]*?)\n {0,3}\1[ \t]*$/gim
 

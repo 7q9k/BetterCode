@@ -1,5 +1,5 @@
 export const dict = {
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Ֆայլ",
   "desktop.menu.edit": "Խմբագրել",
   "desktop.menu.view": "Դիտել",

@@ -216,7 +216,7 @@ export const dict = {
     "Choisissez de mettre les relances en attente ou d’orienter le tour en cours. Utilisez {{keybind}} pour changer.",
   "settings.general.row.followUpBehavior.queue": "Mettre en attente",
   "settings.general.row.followUpBehavior.steer": "Orienter",
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Fichier",
   "desktop.menu.edit": "Édition",
   "desktop.menu.view": "Affichage",

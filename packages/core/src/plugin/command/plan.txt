@@ -40,10 +40,10 @@ Give each task:
 - Every done check is something outside your own judgement can confirm: a test command with its passing result, a build, a lint, a measurement, a reviewer. A task with no outside judge is an evidence gap; say so.
 - The last task is the closing gate: it depends on every other task, runs the real verification commands, and ends with a review. If the review is not clean, a fix task is added and the gate reruns, at most two rounds.
 
-After the table, repeat the tasks as a fenced `plan` block so the app draws the graph. It must be valid JSON, every status `planned`:
+After the table, repeat the tasks as a fenced `plan` block so the app draws the graph. It must be valid JSON, every status `planned`, and each task names the agent best suited to run it (for example architect, researcher, debugger, tester, general; verifier for the closing gate):
 
 ```plan
-{ "title": "<goal>", "nodes": [ { "id": "T1", "label": "<task>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned" } ] }
+{ "title": "<goal>", "nodes": [ { "id": "T1", "label": "<task>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned", "agent": "<agent>" } ] }
 ```
 
 ## 5. Success criteria

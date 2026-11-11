@@ -1,9 +1,13 @@
+import { createSignal } from "solid-js"
 import { CodeBlock, createKeyed, Panel, type MountedSession, type Plugin } from "@opencode/plugin/gui"
+import { showToast } from "@opencode/ui/toast"
+import { teamNote } from "./team"
 import type VisualsDefinition from "./index"
 import { ChartView } from "./chart"
 import { collectPlans, parseChart, parsePlan } from "./model"
 import { PlanGraph } from "./plan-graph"
 import { PlansPanel, sessionTexts } from "./plans-panel"
+import { TeamPanel } from "./team-panel"
 
 const PLANS_TAB = "plans"
 
@@ -67,10 +71,89 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
 
       return [tab]
     },
-    render: (props) => <PlansPanel session={props.session} t={t} />,
+    // Run plan writes the command into the prompt; the user still sends it.
+    render: (props) => (
+      <PlansPanel session={props.session} t={t} onRun={() => props.screen.composer.setText("/dag plan accepted, go")} />
+    ),
   }
 
   ctx.add(Panel, panel)
+
+  // The Team tab is always there: the agents available in this session and what its subagents are doing.
+  const teamTab = {
+    id: "team",
+    get title() {
+      return ctx.t("team.title")
+    },
+    pinned: true,
+  }
+
+  const team: Panel = {
+    id: "team",
+    region: "side",
+    width: 300,
+    mobile: {
+      get title() {
+        return ctx.t("team.title")
+      },
+      order: 41,
+      kind: "menu",
+      icon: "outline-steer",
+    },
+    list: () => [teamTab],
+    render: (props) => (
+      <TeamPanel
+        session={props.session}
+        t={t}
+        setup={ctx.stores.team.value}
+        leadModel={leadModel(props.screen.composer.model())}
+        applied={applied().get(props.session.key) === setupKey()}
+        onEnabled={(enabled) =>
+          ctx.stores.team.update((draft) => {
+            draft.enabled = enabled
+          })
+        }
+        onMember={(id, included) =>
+          ctx.stores.team.update((draft) => {
+            draft.off = included ? draft.off.filter((item) => item !== id) : [...draft.off, id]
+          })
+        }
+        onApply={(members) => void apply(props.session, teamNote(members, ctx.stores.team.value))}
+        // Picking a member starts a prompt that hands the work to it; the user finishes and sends it.
+        onAsk={(name) => props.screen.composer.setText(ctx.t("team.prompt").replace("{{agent}}", name))}
+      />
+    ),
+  }
+
+  // Which setup each session last received, so Apply shows whether the session is up to date.
+  const [applied, setApplied] = createSignal(new Map<string, string>())
+  const setupKey = () => JSON.stringify(ctx.stores.team.value)
+
+  const leadModel = (model: { providerID: string; modelID: string; variant?: string } | undefined) =>
+    model ? `${model.providerID}/${model.modelID}${model.variant ? ` · ${model.variant}` : ""}` : undefined
+
+  // Sends the setup to the session as a note the lead reads on its next turn; it does not start a turn by itself.
+  const apply = async (session: MountedSession, text: string) => {
+    const key = setupKey()
+
+    try {
+      await session.server.client.session.synthetic({
+        sessionID: session.id,
+        text,
+        description: ctx.t("team.note"),
+        resume: false,
+      })
+      setApplied((previous) => new Map(previous).set(session.key, key))
+    } catch (cause) {
+      showToast({
+        variant: "error",
+        title: ctx.t("team.apply.failed"),
+        description: cause instanceof Error ? cause.message : undefined,
+      })
+    }
+  }
+
+  ctx.add(Panel, team)
 
   // Syncs the side layout with the session's plans: opens the Plans tab, without moving the user, when the routed
   // session gets a new plan. The first look at a session only records its count, so revisiting it reopens nothing.

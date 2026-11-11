@@ -1,3 +1,4 @@
+import { AsciiGround } from "@/new-session/ascii-backdrop"
 import {
   batch,
   ErrorBoundary,
@@ -425,6 +426,9 @@ function SessionScreenContent(props: {
             <Show when={messagesReady() && session.identity.params.id}>{timelineView()}</Show>
           </Match>
         </Switch>
+        {/* The ASCII landscape of the start screen, faint and still, along the bottom: over the timeline's background,
+            under the composer, never taking input. */}
+        <AsciiGround />
       </div>
 
       {/* The composer region overflows this zero-height row upward, over a timeline that scrolls on underneath it. It

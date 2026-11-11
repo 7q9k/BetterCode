@@ -218,7 +218,7 @@ export function getConfig() {
       return {
         ...base,
         appId,
-        productName: "0x539 Code Dev",
+        productName: "BetterCode Dev",
         publish: {
           provider: "generic",
           url: "https://opencode.ai/update/api/dev/desktop/opencode/",
@@ -236,8 +236,8 @@ export function getConfig() {
       return {
         ...base,
         appId,
-        productName: "0x539 Code Beta",
-        protocols: { name: "0x539 Code Beta", schemes: ["opencode"] },
+        productName: "BetterCode Beta",
+        protocols: { name: "BetterCode Beta", schemes: ["opencode"] },
         publish: {
           provider: "generic",
           url: "https://opencode.ai/update/api/beta/desktop/opencode/",
@@ -255,8 +255,8 @@ export function getConfig() {
       return {
         ...base,
         appId,
-        productName: "0x539 Code",
-        protocols: { name: "0x539 Code", schemes: ["opencode"] },
+        productName: "BetterCode",
+        protocols: { name: "BetterCode", schemes: ["opencode"] },
         // An Icon Composer package compiles to Assets.car, which macOS 26 and later draw the app icon from
         // (Dock, Finder, system dialogs and the system icon styles). Older macOS keeps using the ICNS.
         mac: { ...base.mac, icon: "resources/icons/icon.icon" },

@@ -1,6 +1,6 @@
 import { type ComponentProps } from "solid-js"
 
-// The 0x539 mark: a ringed planet built from a dot grid, echoing the ASCII backdrop on Home.
+// The BetterCode mark: a ringed planet built from a dot grid, echoing the ASCII backdrop on Home.
 const PLANET_DOTS = (() => {
   const dots: { x: number; y: number; o: number }[] = []
 
@@ -107,7 +107,7 @@ export const Logo = (props: { class?: string }) => {
         letter-spacing="1"
         style={{ "font-family": "var(--font-family-mono)" }}
       >
-        0x539
+        better
       </text>
     </svg>
   )

@@ -16,14 +16,16 @@ Print the graph before running anything, as a fenced `plan` block (the app draws
 {
   "title": "<goal in a few words>",
   "nodes": [
-    { "id": "T1", "label": "<what it does>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned", "model": "<model if known>", "category": "quick|deep|visual|review" },
-    { "id": "T2", "label": "<what it does>", "deps": ["T1"], "writes": ["<file>"], "check": "<command>", "status": "planned" },
-    { "id": "V", "label": "verify the goal", "deps": ["T1", "T2"], "writes": [], "check": "<full test command>", "status": "planned" }
+    { "id": "T1", "label": "<what it does>", "deps": [], "writes": ["<file>"], "check": "<command>", "status": "planned", "agent": "<agent that does it>", "model": "<model you chose for it>" },
+    { "id": "T2", "label": "<what it does>", "deps": ["T1"], "writes": ["<file>"], "check": "<command>", "status": "planned", "agent": "<agent>" },
+    { "id": "V", "label": "verify the goal", "deps": ["T1", "T2"], "writes": [], "check": "<full test command>", "status": "planned", "agent": "verifier" }
   ]
 }
 ```
 
 Valid statuses: planned, running, done, verified, failed, blocked. The block must be valid JSON.
+
+Give every node the agent best suited to it, from the subagents available to you: for example `architect` for a design decision, `researcher` for a question that needs current sources, `debugger` for a failing test or crash, `tester` for writing tests, `general` for ordinary implementation, and `verifier` plus `reviewer` for V. Start each node on its agent, with the model you chose for it (see the model rules in your instructions). If an agent is not available, use `general` and say so.
 
 Rules:
 - Each node is small (one behavior, a few files) and has: id, label, depends_on, write scope (files it may change), and a done check that an outside judge can confirm (a command and its passing result).
@@ -42,7 +44,7 @@ Rules:
 
 ## 3. Verify and repair
 
-Node V runs the real verification for the whole goal (build, typecheck, tests, lint as the project uses them) and reviews the combined diff. If anything fails or the review is not clean, add a fix node with its own id, scope and check, run it, then rerun V. At most two repair rounds; after that, report what is still open instead of looping.
+Node V runs the real verification for the whole goal (build, typecheck, tests, lint as the project uses them) and reviews the combined diff. Whoever built a node never judges it: when the `verifier` and `reviewer` subagents are available, start both in the same turn (verifier for the checks, reviewer for the combined diff against the plan) and use their verdicts; otherwise do both yourself. If anything fails or the review is not clean, add a fix node with its own id, scope and check, run it, then rerun V. At most two repair rounds; after that, report what is still open instead of looping.
 
 ## 4. Report
 

@@ -679,7 +679,7 @@ export const dict = {
   "workspace.status.dirty": "Tässä työtilassa havaittu yhdistämättömiä muutoksia.",
   "workspace.delete.confirm": 'Poistetaanko työtila "{{name}}"?',
   "workspace.delete.button": "Poista työtila",
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Tiedosto",
   "desktop.menu.edit": "Muokkaa",
   "desktop.menu.view": "Näytä",

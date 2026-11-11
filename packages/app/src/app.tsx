@@ -21,7 +21,6 @@ import { TabsProvider } from "@/shell/tabs/tabs"
 import { ErrorPage } from "@/shell/errors/error"
 import { AppRoutes, File, preloadRoute } from "@/shell/routes/routes"
 import { PluginRoot } from "@/runtime/plugin/root"
-import { WarpOverlay } from "@/shell/warp"
 
 export { preloadRoute }
 
@@ -58,7 +57,7 @@ export function AppBaseProviders(
 ) {
   return (
     <MetaProvider>
-      <Title>0x539 Code</Title>
+      <Title>BetterCode</Title>
       <Font />
       <ThemeProvider onThemeApplied={(mode, scheme) => props.onThemeApplied?.(mode, scheme)}>
         <LanguageProvider locale={props.locale} onNativeTranslations={props.onNativeTranslations}>
@@ -105,7 +104,6 @@ export function AppInterface(props: {
               {props.children}
               {rootProps.children}
               <VoiceOverlay />
-              <WarpOverlay />
             </VoiceProvider>
           </CommandProvider>
         </ProjectIconsProvider>

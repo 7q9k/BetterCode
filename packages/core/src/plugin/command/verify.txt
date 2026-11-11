@@ -21,6 +21,8 @@ Start with the smallest check that proves the claim, then widen for shared code.
 
 ## 3. Run them
 
+For a larger change, hand the checks to the `verifier` subagent and, when the change needs a second reader, the diff to the `reviewer` subagent, both in the same turn; report their commands and verdicts as your evidence.
+
 For each check record: the exact command, exit status, a one-line summary of the output, what it covered, and when it ran. A planned command, an old run, or a check that ran before the last edit is not evidence.
 
 For a failing check, give its origin:

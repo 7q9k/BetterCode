@@ -197,7 +197,7 @@ export const dict = {
     "Velg om oppfølginger skal legges i kø eller styre den gjeldende turen. Bruk {{keybind}} for å bytte.",
   "settings.general.row.followUpBehavior.queue": "Legg i kø",
   "settings.general.row.followUpBehavior.steer": "Styr",
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Arkiv",
   "desktop.menu.edit": "Rediger",
   "desktop.menu.view": "Vis",

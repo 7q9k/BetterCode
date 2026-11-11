@@ -492,7 +492,7 @@ export const dict = {
 
   "command.logs.export": "로그 내보내기",
 
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "파일",
   "desktop.menu.edit": "편집",
   "desktop.menu.view": "보기",

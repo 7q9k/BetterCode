@@ -1,44 +1,23 @@
-import { createSignal, onCleanup } from "solid-js"
-import { useLanguage } from "@/runtime/i18n/language"
+import { Wordmark } from "@opencode/ui/wordmark"
 
-type DayPart = "morning" | "afternoon" | "evening" | "night"
+const PRODUCT = "BetterCode"
 
-function dayPart(hour: number): DayPart {
-  if (hour >= 5 && hour < 12) return "morning"
-
-  if (hour >= 12 && hour < 18) return "afternoon"
-
-  if (hour >= 18 && hour < 23) return "evening"
-
-  return "night"
-}
-
-// Splits the translated headline around its {{word}} placeholder so the word can carry the accent gradient.
-const MARK = "\u0000"
-
-/** Home headline with one highlighted word, matched to the time of day. */
+/**
+ * Home's title: the product's wordmark in the blocky letter style of the original OpenCode logo, with a faint mirrored
+ * shadow under it that fades out, as if it stood on a polished floor.
+ */
 export function NewSessionHero() {
-  const language = useLanguage()
-  const [part, setPart] = createSignal(dayPart(new Date().getHours()))
-  const timer = setInterval(() => setPart(dayPart(new Date().getHours())), 60_000)
-  onCleanup(() => clearInterval(timer))
-
-  const headline = () => {
-    const [before = "", after = ""] = language.t(`home.headline.${part()}`, { word: MARK }).split(MARK)
-
-    return { before, after, word: language.t("home.headline.word") }
-  }
-
   return (
-    <h1
-      data-component="new-session-hero"
-      class="text-center text-[clamp(28px,4.2vw,46px)] font-[380] leading-[1.15] tracking-[-0.03em] text-v2-text-text-base"
-    >
-      {headline().before}
-      <span class="bg-[linear-gradient(90deg,#ffffff,#a3a3a3_55%,#e5e5e5)] bg-clip-text text-transparent">
-        {headline().word}
+    <h1 data-component="new-session-hero" aria-label={PRODUCT} class="m-0 flex justify-center font-normal">
+      <span class="flex flex-col items-center rounded-[32px] px-10 pt-6 pb-2 [background:radial-gradient(ellipse_at_center,rgba(23,23,23,0.9)_45%,rgba(23,23,23,0)_75%)]">
+        <Wordmark class="block h-auto w-[min(320px,48vw)] text-v2-text-text-muted" fade={false} muted={false} />
+        <span
+          aria-hidden="true"
+          class="mt-1 block h-[26px] w-[min(320px,48vw)] overflow-hidden opacity-20 blur-[1px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+        >
+          <Wordmark class="block h-auto w-full -scale-y-100 text-v2-text-text-muted" fade={false} muted={false} />
+        </span>
       </span>
-      {headline().after}
     </h1>
   )
 }

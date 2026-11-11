@@ -20,7 +20,7 @@ export function sessionTexts(session: MountedSession) {
  * The side panel's Plans tab, after oh-my-hermes: the session's latest plan as a vertical graph that follows every
  * reprint of its statuses, and the earlier plans to switch to.
  */
-export function PlansPanel(props: { session: MountedSession; t: Translate }) {
+export function PlansPanel(props: { session: MountedSession; t: Translate; onRun?: () => void }) {
   const plans = createMemo(() => collectPlans(sessionTexts(props.session)))
   // Undefined follows the newest plan; a click pins an earlier one until a new plan arrives.
   const [picked, setPicked] = createSignal<string>()
@@ -62,7 +62,7 @@ export function PlansPanel(props: { session: MountedSession; t: Translate }) {
       >
         {(item) => (
           <div data-scrollable style={{ flex: "1", "min-height": "0", "overflow-y": "auto" }}>
-            <PlanGraph plan={item().plan} t={props.t} direction="vertical" bare />
+            <PlanGraph plan={item().plan} t={props.t} direction="vertical" bare onRun={props.onRun} />
             <Show when={plans().length > 1}>
               <div
                 style={{

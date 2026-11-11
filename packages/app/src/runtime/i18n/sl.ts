@@ -25,7 +25,7 @@ export const dict = {
   "session.background.subagent.few": "{{count}} podagenti",
   "settings.about.otherContributor.two": "{{count}} druga",
   "settings.about.otherContributor.few": "{{count}} drugi",
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Datoteka",
   "desktop.menu.edit": "Uredi",
   "desktop.menu.view": "Pogled",

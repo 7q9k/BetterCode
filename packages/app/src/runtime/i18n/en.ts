@@ -583,11 +583,6 @@ export const dict = {
   "notification.session.error.fallbackDescription": "An error occurred",
 
   "home.title": "Home",
-  "home.headline.morning": "what are we {{word}} this morning?",
-  "home.headline.afternoon": "what are we {{word}} today?",
-  "home.headline.evening": "what are we {{word}} tonight?",
-  "home.headline.night": "what are we {{word}} tonight?",
-  "home.headline.word": "building",
   "home.projects": "Projects",
   "home.projects.all": "All projects",
   "home.project.add": "Add project",

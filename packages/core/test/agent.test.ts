@@ -178,13 +178,31 @@ describe("Agent", () => {
 
       const agents = yield* agent.list()
       expect(agents.map((item) => String(item.id)).sort()).toEqual([
+        "architect",
         "build",
         "compaction",
+        "debugger",
         "explore",
         "general",
+        "researcher",
+        "reviewer",
         "summary",
+        "tester",
         "title",
+        "verifier",
       ])
+      // Read-only specialists must not be able to edit; the writers must.
+      const canEdit = (id: string) =>
+        agent
+          .get(Agent.ID.make(id))
+          .pipe(Effect.map((info) => Permission.evaluate("edit", "src/a.ts", info?.permissions ?? []).effect))
+      expect(yield* Effect.forEach(["architect", "researcher", "reviewer", "verifier"], canEdit)).toEqual([
+        "deny",
+        "deny",
+        "deny",
+        "deny",
+      ])
+      expect(yield* Effect.forEach(["debugger", "tester"], canEdit)).not.toContain("deny")
       expect((yield* agent.get(Agent.defaultID))?.system).toBeUndefined()
       const permissions = (yield* agent.get(Agent.defaultID))?.permissions ?? []
       const compaction = yield* agent.get(Agent.ID.make("compaction"))

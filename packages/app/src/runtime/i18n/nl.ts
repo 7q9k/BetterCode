@@ -204,7 +204,7 @@ export const dict = {
     "Kies of vervolgberichten in de wachtrij komen of de huidige beurt bijsturen. Gebruik {{keybind}} om te wisselen.",
   "settings.general.row.followUpBehavior.queue": "In wachtrij plaatsen",
   "settings.general.row.followUpBehavior.steer": "Bijsturen",
-  "desktop.menu.app": "0x539 Code",
+  "desktop.menu.app": "BetterCode",
   "desktop.menu.file": "Bestand",
   "desktop.menu.edit": "Bewerken",
   "desktop.menu.view": "Weergave",

@@ -1,5 +1,5 @@
-import { For, Show, type JSX } from "solid-js"
-import { layoutPlan, PLAN_STATUSES, type Plan, type PlanStatus, type PlacedNode } from "./model"
+import { createSignal, For, Show, type JSX } from "solid-js"
+import { layoutPlan, planMarkdown, planProgress, PLAN_STATUSES, type Plan, type PlanStatus, type PlacedNode } from "./model"
 import { createWidth } from "./size"
 
 // Boxes grow and shrink with the room they have, between these widths; below the minimum the graph turns vertical.
@@ -17,7 +17,9 @@ const GAP_LAYER_VERTICAL = 32
 
 const PAD = 12
 
-type Translate = (key: StatusKey | "plan" | "dependencies" | "writes" | "summary") => string
+type Translate = (
+  key: StatusKey | "plan" | "dependencies" | "writes" | "summary" | "check" | "run" | "progress" | "model" | "copy" | "copied" | "agent",
+) => string
 
 type StatusKey = `status.${PlanStatus}`
 
@@ -46,8 +48,43 @@ function fit(room: number, count: number, gap: number) {
  * its width and fits the window: columns left to right while they fit, else dependency rows top to bottom; `vertical`
  * asks for rows from the start, as the narrow side panel does. Only a graph wider than the narrowest boxes scrolls.
  */
-export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Direction; bare?: boolean }) {
+export function PlanGraph(props: {
+  plan: Plan
+  t: Translate
+  direction?: Direction
+  bare?: boolean
+  /** Offers a Run button while the plan still has planned work and nothing is running. */
+  onRun?: () => void
+}) {
   const frame = createWidth()
+  // The task whose details show under the graph; a second click closes them.
+  const [selected, setSelected] = createSignal<string>()
+  const detail = () => props.plan.nodes.find((node) => node.id === selected())
+  const progress = () => planProgress(props.plan)
+  const [copied, setCopied] = createSignal(false)
+
+  // Copies the plan as a Markdown checklist. The Clipboard API needs a secure context, so plain HTTP origins fall
+  // back to a hidden text field and the legacy copy command.
+  const copy = () => {
+    const text = planMarkdown(props.plan)
+
+    const legacy = () => {
+      const field = document.createElement("textarea")
+      field.value = text
+      field.style.position = "fixed"
+      field.style.opacity = "0"
+      document.body.appendChild(field)
+      field.select()
+      document.execCommand("copy")
+      field.remove()
+    }
+
+    if (window.isSecureContext && navigator.clipboard) void navigator.clipboard.writeText(text).catch(legacy)
+    else legacy()
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
   const layout = () => layoutPlan(props.plan)
 
   const vertical = () =>
@@ -134,11 +171,31 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
           "line-height": "var(--line-height-compact)",
         }}
       >
-        <span style={{ color: "var(--v2-text-text-faint)", "font-family": "var(--font-family-mono)" }}>
+        <span style={{ color: "var(--v2-text-text-faint)", "font-family": "var(--font-family-mono)", "flex-shrink": "0" }}>
           {props.t("plan")}
         </span>
-        <span style={{ "font-weight": "var(--font-weight-medium)" }}>{props.plan.title}</span>
-        <span style={{ "margin-inline-start": "auto", display: "flex", gap: "10px", color: "var(--v2-text-text-muted)" }}>
+        <span
+          title={props.plan.title}
+          style={{
+            "font-weight": "var(--font-weight-medium)",
+            "min-width": "0",
+            overflow: "hidden",
+            "text-overflow": "ellipsis",
+            "white-space": "nowrap",
+          }}
+        >
+          {props.plan.title}
+        </span>
+        <span
+          style={{
+            "margin-inline-start": "auto",
+            display: "flex",
+            gap: "10px",
+            "flex-shrink": "0",
+            "white-space": "nowrap",
+            color: "var(--v2-text-text-muted)",
+          }}
+        >
           <For each={counts()}>
             {(item) => (
               <span style={{ display: "flex", "align-items": "center", gap: "5px" }}>
@@ -150,6 +207,64 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
             )}
           </For>
         </span>
+        <button
+          type="button"
+          onClick={copy}
+          style={{
+            height: "24px",
+            padding: "0 8px",
+            "border-radius": "6px",
+            border: "1px solid var(--v2-border-border-base)",
+            background: "transparent",
+            color: "var(--v2-text-text-muted)",
+            "font-size": "12px",
+            "line-height": "var(--line-height-compact)",
+            cursor: "pointer",
+            "flex-shrink": "0",
+            "white-space": "nowrap",
+          }}
+        >
+          {props.t(copied() ? "copied" : "copy")}
+        </button>
+        <Show when={props.onRun && progress().runnable}>
+          <button
+            type="button"
+            onClick={() => props.onRun?.()}
+            style={{
+              height: "24px",
+              padding: "0 10px",
+              "border-radius": "6px",
+              border: "1px solid var(--v2-border-border-strong)",
+              background: "var(--v2-text-text-base)",
+              color: "var(--v2-background-bg-base)",
+              "font-size": "12px",
+              "line-height": "var(--line-height-compact)",
+              "font-weight": "var(--font-weight-medium)",
+              cursor: "pointer",
+              "flex-shrink": "0",
+              "white-space": "nowrap",
+            }}
+          >
+            {props.t("run")}
+          </button>
+        </Show>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={props.t("progress")}
+        aria-valuemin={0}
+        aria-valuemax={progress().total}
+        aria-valuenow={progress().finished}
+        style={{ height: "2px", background: "var(--v2-border-border-muted)" }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${progress().ratio * 100}%`,
+            background: "var(--v2-text-text-base)",
+            transition: "width 300ms ease",
+          }}
+        />
       </div>
 
       <div data-scrollable style={{ "overflow-x": "auto" }}>
@@ -182,9 +297,16 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
           </svg>
           <For each={layout().nodes}>
             {(node) => (
-              <div
+              <button
+                type="button"
                 data-status={node.status}
+                aria-pressed={selected() === node.id}
+                onClick={() => setSelected(selected() === node.id ? undefined : node.id)}
                 style={{
+                  "text-align": "start",
+                  cursor: "pointer",
+                  color: "inherit",
+                  "font-family": "inherit",
                   position: "absolute",
                   left: `${position(node).x}px`,
                   top: `${position(node).y}px`,
@@ -194,7 +316,7 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
                   padding: "9px 11px",
                   "border-radius": "12px",
                   border:
-                    node.status === "running"
+                    node.status === "running" || selected() === node.id
                       ? "1px solid var(--v2-text-text-base)"
                       : "1px solid var(--v2-border-border-strong)",
                   background: "var(--surface-raised-base)",
@@ -237,7 +359,7 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
                 >
                   {node.label}
                 </div>
-                <Show when={node.model || node.category || node.effort}>
+                <Show when={node.agent || node.model || node.category || node.effort}>
                   <div
                     style={{
                       "font-size": "11px",
@@ -248,7 +370,7 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
                       "white-space": "nowrap",
                     }}
                   >
-                    {[node.model, node.effort, node.category].filter(Boolean).join(" · ")}
+                    {[node.agent, node.model, node.effort, node.category].filter(Boolean).join(" · ")}
                   </div>
                 </Show>
                 <Show when={node.writes.length}>
@@ -267,11 +389,52 @@ export function PlanGraph(props: { plan: Plan; t: Translate; direction?: Directi
                     {node.writes.join(", ")}
                   </div>
                 </Show>
-              </div>
+              </button>
             )}
           </For>
         </div>
       </div>
+
+      <Show when={detail()}>
+        {(node) => (
+          <dl
+            data-slot="plan-detail"
+            style={{
+              margin: "0",
+              padding: "10px 14px",
+              "border-top": "1px solid var(--v2-border-border-muted)",
+              display: "grid",
+              "grid-template-columns": "max-content minmax(0, 1fr)",
+              gap: "4px 12px",
+              "font-size": "12px",
+              "line-height": "18px",
+            }}
+          >
+            <dt style={{ color: "var(--v2-text-text-faint)" }}>{node().id}</dt>
+            <dd style={{ margin: "0", "font-weight": "var(--font-weight-medium)" }}>{node().label}</dd>
+            <Show when={node().check}>
+              <dt style={{ color: "var(--v2-text-text-faint)" }}>{props.t("check")}</dt>
+              <dd style={{ margin: "0", "font-family": "var(--font-family-mono)", "overflow-wrap": "anywhere" }}>{node().check}</dd>
+            </Show>
+            <Show when={node().writes.length}>
+              <dt style={{ color: "var(--v2-text-text-faint)" }}>{props.t("writes")}</dt>
+              <dd style={{ margin: "0", "font-family": "var(--font-family-mono)", "overflow-wrap": "anywhere" }}>{node().writes.join(", ")}</dd>
+            </Show>
+            <Show when={node().deps.length}>
+              <dt style={{ color: "var(--v2-text-text-faint)" }}>{props.t("dependencies")}</dt>
+              <dd style={{ margin: "0", "font-family": "var(--font-family-mono)", "overflow-wrap": "anywhere" }}>{node().deps.join(", ")}</dd>
+            </Show>
+            <Show when={node().agent}>
+              <dt style={{ color: "var(--v2-text-text-faint)" }}>{props.t("agent")}</dt>
+              <dd style={{ margin: "0", "text-transform": "capitalize" }}>{node().agent}</dd>
+            </Show>
+            <Show when={node().model || node().category || node().effort}>
+              <dt style={{ color: "var(--v2-text-text-faint)" }}>{props.t("model")}</dt>
+              <dd style={{ margin: "0" }}>{[node().model, node().effort, node().category].filter(Boolean).join(" · ")}</dd>
+            </Show>
+          </dl>
+        )}
+      </Show>
 
       <Show when={layout().edges.length}>
         <div
