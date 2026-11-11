@@ -30,21 +30,25 @@ Give every node the agent best suited to it, from the subagents available to you
 Rules:
 - Each node is small (one behavior, a few files) and has: id, label, depends_on, write scope (files it may change), and a done check that an outside judge can confirm (a command and its passing result).
 - Nodes that run at the same time must never share a write scope. If two nodes write the same file, one depends directly on the other.
+- **Shape the graph for speed: as wide and as shallow as possible.** Split work by files so independent nodes share the first layer. When several nodes would each add a little to the same file (an index, a shared test file), give each node its own new file where the project allows it, or let one node own that file, instead of chaining nodes one after another on it. Every extra layer makes the run slower.
+- **Do not spend a subagent on tiny nodes.** A node of size XS, or one that would run alone in its layer and is small, you do yourself with `"agent": "lead"`; a subagent starts cold and is slower for it. If the whole graph has only one or two small nodes, do all of it yourself and keep just V.
 - The last node is **V**, the verification node. It depends on every other node.
 - Mirror the graph in the todo list, one item per node.
 
 ## 2. Run it in layers
 
 - A node is ready when all its dependencies are done.
-- Start every ready node in the same turn, each as its own subagent (task tool) when available, so they run in parallel. If subagents are not available, run ready nodes one after another and say so.
-- Give each subagent a self-contained prompt in this shape:
-  `TASK` what to do · `DELIVERABLE` what must exist afterwards · `SCOPE` the only files it may write · `VERIFY` the exact command and its passing result · `STOP WHEN` the condition to stop and report.
-- When a node reports back, check its claim yourself by running its VERIFY command. A node counts as done only on an observed passing check, never on its own report.
+- Start every ready node in one response: several subagent calls in the same response run at the same time, one call per response runs them one after another. Never start a node and wait for it before starting another ready one. If subagents are not available, run ready nodes one after another and say so.
+- Before starting a layer, read the code it needs once yourself and put what you found into the briefs, so each agent starts working instead of searching. Give each subagent a self-contained prompt in this shape:
+  `TASK` what to do · `CONTEXT` the exact files, functions and facts it needs · `DELIVERABLE` what must exist afterwards · `SCOPE` the only files it may write · `VERIFY` the exact command and its passing result · `STOP WHEN` the condition to stop · `REPORT` a few lines: what changed and the check's result.
+- When a node reports back, confirm it with the narrowest check that covers it (one test file, not the whole suite). A node counts as done only on an observed passing check, never on its own report. Leave the full suite to V, and run it once there, not after every node.
 - Update the todo list as nodes finish, and show a short status line per node: `T2 · done · verified (bun test foo: 12 passed)`.
 
 ## 3. Verify and repair
 
-Node V runs the real verification for the whole goal (build, typecheck, tests, lint as the project uses them) and reviews the combined diff. Whoever built a node never judges it: when the `verifier` and `reviewer` subagents are available, start both in the same turn (verifier for the checks, reviewer for the combined diff against the plan) and use their verdicts; otherwise do both yourself. If anything fails or the review is not clean, add a fix node with its own id, scope and check, run it, then rerun V. At most two repair rounds; after that, report what is still open instead of looping.
+Node V runs the real verification for the whole goal (build, typecheck, tests, lint as the project uses them) and reviews the combined diff. Size it to the change:
+- **Small change** (a few files, nothing risky): run the checks yourself and read the diff once. No extra subagents.
+- **Larger or risky change**: whoever built the nodes never judges them. Start `verifier` (checks, on a fast model) and `reviewer` (combined diff against the plan) in the same response so they run in parallel, and use their verdicts; do not rerun checks the verifier already ran on the current files. If those agents are not available, do both yourself. If anything fails or the review is not clean, add a fix node with its own id, scope and check, run it, then rerun V. At most two repair rounds; after that, report what is still open instead of looping.
 
 ## 4. Report
 
