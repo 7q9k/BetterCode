@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# Installs BetterCode from its GitHub releases: the `bettercode` command into ~/.bettercode/bin and, where a desktop
+# build exists for the platform, the BetterCode desktop app. Rerun it to update both.
+#
+#   curl -fsSL https://github.com/7q9k/BetterCode/releases/latest/download/install | bash
+set -euo pipefail
+
+REPO=7q9k/BetterCode
+APP=bettercode
+INSTALL_DIR=$HOME/.bettercode/bin
+
+MUTED='\033[0;2m'
+RED='\033[0;31m'
+ACCENT='\033[38;5;75m'
+NC='\033[0m'
+
+usage() {
+    cat <<EOF
+BetterCode Installer
+
+Usage: install [options]
+
+Options:
+    -h, --help              Display this help message
+    -v, --version <version> Install a specific version (e.g. 2.3.0)
+    -b, --binary <path>     Install the command from a local binary instead of downloading
+        --no-desktop        Install only the bettercode command, not the desktop app
+        --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
+
+Examples:
+    curl -fsSL https://github.com/$REPO/releases/latest/download/install | bash
+    curl -fsSL https://github.com/$REPO/releases/latest/download/install | bash -s -- --no-desktop
+EOF
+}
+
+requested_version=${VERSION:-}
+binary_path=""
+no_modify_path=false
+desktop=true
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help) usage; exit 0 ;;
+        -v|--version)
+            [[ -n "${2:-}" ]] || { echo -e "${RED}Error: --version requires a version argument${NC}"; exit 1; }
+            requested_version="${2#v}"
+            shift 2
+            ;;
+        -b|--binary)
+            [[ -n "${2:-}" ]] || { echo -e "${RED}Error: --binary requires a path argument${NC}"; exit 1; }
+            binary_path="$2"
+            shift 2
+            ;;
+        --no-desktop) desktop=false; shift ;;
+        --no-modify-path) no_modify_path=true; shift ;;
+        *) echo -e "${RED}Warning: unknown option '$1'${NC}" >&2; shift ;;
+    esac
+done
+
+info() { echo -e "$1"; }
+fail() { echo -e "${RED}$1${NC}" >&2; exit 1; }
+
+command -v curl >/dev/null 2>&1 || fail "curl is required to install BetterCode."
+
+raw_os=$(uname -s)
+case "$raw_os" in
+    Darwin*) os=darwin ;;
+    Linux*) os=linux ;;
+    MINGW*|MSYS*|CYGWIN*) os=windows ;;
+    *) fail "Unsupported operating system: $raw_os" ;;
+esac
+
+arch=$(uname -m)
+case "$arch" in
+    aarch64|arm64) arch=arm64 ;;
+    x86_64|amd64) arch=x64 ;;
+    *) fail "Unsupported architecture: $arch" ;;
+esac
+
+# An x64 shell under Rosetta or Windows ARM64 emulation still runs on an ARM64 host.
+if [ "$os" = darwin ] && [ "$arch" = x64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 1 ]; then
+    arch=arm64
+fi
+if [ "$os" = windows ] && [ "$arch" = x64 ] && [[ "$raw_os" == *-ARM64 || "${PROCESSOR_IDENTIFIER:-}" == ARM* ]]; then
+    arch=arm64
+fi
+
+target="$os-$arch"
+
+# x64 CPUs without AVX2 need the baseline build.
+if [ "$arch" = x64 ]; then
+    avx2=true
+    case "$os" in
+        linux) grep -qwi avx2 /proc/cpuinfo 2>/dev/null || avx2=false ;;
+        darwin) [ "$(sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0)" = 1 ] || avx2=false ;;
+        windows)
+            ps=$(command -v powershell.exe || true)
+            if [ -n "$ps" ]; then
+                result=$("$ps" -NoProfile -NonInteractive -Command "(Add-Type -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern bool IsProcessorFeaturePresent(int f);' -Name K -Namespace W -PassThru)::IsProcessorFeaturePresent(40)" 2>/dev/null | tr -d '\r' || true)
+                [ "$result" = True ] || avx2=false
+            fi
+            ;;
+    esac
+    [ "$avx2" = true ] || target="$target-baseline"
+fi
+
+if [ "$os" = linux ] && { [ -f /etc/alpine-release ] || ldd --version 2>&1 | grep -qi musl; }; then
+    target="$target-musl"
+fi
+
+if [ -n "$requested_version" ]; then
+    tag="v$requested_version"
+    base="https://github.com/$REPO/releases/download/$tag"
+    status=$(curl -s -o /dev/null -w "%{http_code}" -I -L "$base/install" || true)
+    [ "$status" = 200 ] || fail "BetterCode $requested_version was not found. Releases: https://github.com/$REPO/releases"
+else
+    tag=$(curl -fsSL -o /dev/null -w "%{url_effective}" "https://github.com/$REPO/releases/latest" | sed 's#.*/tag/##')
+    [[ "$tag" == v* ]] || fail "Could not find the latest BetterCode release at https://github.com/$REPO/releases"
+    base="https://github.com/$REPO/releases/download/$tag"
+fi
+version="${tag#v}"
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/bettercode.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+
+download() {
+    curl -fL --progress-bar -o "$tmp/$1" "$base/$1" || fail "Could not download $base/$1"
+}
+
+mkdir -p "$INSTALL_DIR"
+executable="$APP"
+[ "$os" = windows ] && executable="$APP.exe"
+
+if [ -n "$binary_path" ]; then
+    [ -f "$binary_path" ] || fail "Binary not found at $binary_path"
+    info "\n${MUTED}Installing ${NC}bettercode ${MUTED}from ${NC}$binary_path"
+    cp "$binary_path" "$INSTALL_DIR/$executable"
+else
+    info "\n${MUTED}Installing ${NC}bettercode ${MUTED}version ${NC}$version ${MUTED}($target)${NC}"
+    if [ "$os" = windows ]; then
+        archive="bettercode-$target.zip"
+        download "$archive"
+        if command -v unzip >/dev/null 2>&1; then unzip -oq "$tmp/$archive" -d "$tmp/cli"; else mkdir -p "$tmp/cli" && tar -xf "$tmp/$archive" -C "$tmp/cli"; fi
+    else
+        archive="bettercode-$target.tar.gz"
+        download "$archive"
+        mkdir -p "$tmp/cli" && tar -xzf "$tmp/$archive" -C "$tmp/cli"
+    fi
+    mv -f "$tmp/cli/$executable" "$INSTALL_DIR/$executable"
+fi
+chmod 755 "$INSTALL_DIR/$executable"
+
+# The desktop app is built for macOS, Windows x64 and Linux x64; elsewhere only the command is installed.
+install_desktop() {
+    case "$os-$arch" in
+        darwin-*)
+            local name="bettercode-desktop-darwin-$arch.app.tar.gz"
+            local apps=/Applications
+            [ -w "$apps" ] || { apps="$HOME/Applications"; mkdir -p "$apps"; }
+            info "\n${MUTED}Installing the desktop app into ${NC}$apps"
+            download "$name"
+            mkdir -p "$tmp/desktop" && tar -xzf "$tmp/$name" -C "$tmp/desktop"
+            local bundle
+            bundle=$(find "$tmp/desktop" -maxdepth 1 -name "*.app" | head -n 1)
+            [ -n "$bundle" ] || fail "The desktop download holds no app bundle."
+            rm -rf "$apps/BetterCode.app"
+            mv "$bundle" "$apps/BetterCode.app"
+            # The release is unsigned: sign it ad hoc for this Mac and drop the quarantine flag, so it opens.
+            xattr -dr com.apple.quarantine "$apps/BetterCode.app" 2>/dev/null || true
+            codesign --force --deep --sign - "$apps/BetterCode.app" >/dev/null 2>&1 || true
+            desktop_location="$apps/BetterCode.app"
+            ;;
+        linux-x64)
+            if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+                info "${MUTED}No graphical session found; skipping the desktop app.${NC}"
+                return
+            fi
+            local name="bettercode-desktop-linux-x64.AppImage"
+            local dir="$HOME/.bettercode/desktop"
+            info "\n${MUTED}Installing the desktop app into ${NC}$dir"
+            download "$name"
+            mkdir -p "$dir"
+            mv -f "$tmp/$name" "$dir/BetterCode.AppImage"
+            chmod 755 "$dir/BetterCode.AppImage"
+            local applications="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+            mkdir -p "$applications"
+            cat > "$applications/bettercode.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=BetterCode
+Comment=AI coding agent
+Exec="$dir/BetterCode.AppImage" --no-sandbox %U
+Terminal=false
+Categories=Development;
+StartupWMClass=dev.bettercode.desktop
+EOF
+            desktop_location="$dir/BetterCode.AppImage"
+            ;;
+        windows-x64)
+            local name="bettercode-desktop-windows-x64-setup.exe"
+            info "\n${MUTED}Installing the desktop app${NC}"
+            download "$name"
+            # Git Bash would rewrite `/S` into a Windows path without the exclusion.
+            MSYS2_ARG_CONV_EXCL='*' "$tmp/$name" /S || fail "The desktop installer failed."
+            desktop_location="the Start menu"
+            ;;
+        *)
+            info "${MUTED}No desktop app is built for $os-$arch yet; installed the bettercode command only.${NC}"
+            ;;
+    esac
+}
+
+desktop_location=""
+if [ "$desktop" = true ] && [ -z "$binary_path" ]; then
+    install_desktop
+fi
+
+add_to_path() {
+    local config_file=$1 command=$2
+    if grep -Fxq "$command" "$config_file" 2>/dev/null; then
+        return
+    fi
+    if [[ -w $config_file ]]; then
+        printf '\n# bettercode\n%s\n' "$command" >> "$config_file"
+        info "${MUTED}Added ${NC}bettercode ${MUTED}to \$PATH in ${NC}$config_file"
+        return
+    fi
+    info "Add BetterCode to your PATH in $config_file (or similar):\n  $command"
+}
+
+if [ "$no_modify_path" != true ] && [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    shell_name=$(basename "${SHELL:-bash}")
+    config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+    case $shell_name in
+        fish) candidates="$config_home/fish/config.fish"; line="fish_add_path $INSTALL_DIR" ;;
+        zsh) candidates="${ZDOTDIR:-$HOME}/.zshrc ${ZDOTDIR:-$HOME}/.zshenv"; line="export PATH=$INSTALL_DIR:\$PATH" ;;
+        *) candidates="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile"; line="export PATH=$INSTALL_DIR:\$PATH" ;;
+    esac
+    config_file=""
+    for file in $candidates; do
+        if [ -f "$file" ]; then config_file=$file; break; fi
+    done
+    # A fresh Mac has no ~/.zshrc yet: create the shell's main config file instead of leaving PATH unchanged.
+    if [ -z "$config_file" ]; then
+        config_file=${candidates%% *}
+        mkdir -p "$(dirname "$config_file")" && touch "$config_file"
+    fi
+    add_to_path "$config_file" "$line"
+    if [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "${GITHUB_PATH:-}" ]; then
+        echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+    fi
+fi
+
+echo
+echo -e "${ACCENT}BetterCode $version is installed.${NC}"
+echo
+echo -e "  ${MUTED}Start it in a project:${NC}  cd <project> && bettercode"
+[ -n "$desktop_location" ] && echo -e "  ${MUTED}Desktop app:${NC}           $desktop_location"
+[[ ":$PATH:" != *":$INSTALL_DIR:"* ]] && echo -e "  ${MUTED}Open a new terminal first, so${NC} bettercode ${MUTED}is on your PATH.${NC}"
+echo

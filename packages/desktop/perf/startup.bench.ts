@@ -153,10 +153,10 @@ function skipOnboarding(ctx: LaunchContext<unknown>) {
   const name = basename(ctx.exe!, ".exe")
 
   const id = /beta/i.test(name)
-    ? "ai.opencode.desktop.beta"
+    ? "dev.bettercode.desktop.beta"
     : /dev/i.test(name)
-      ? "ai.opencode.desktop.dev"
-      : "ai.opencode.desktop"
+      ? "dev.bettercode.desktop.dev"
+      : "dev.bettercode.desktop"
 
   const file = join(ctx.home!, "AppData", "Roaming", id, "opencode.settings")
   const settings = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {}

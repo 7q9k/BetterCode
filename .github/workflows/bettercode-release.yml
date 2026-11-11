@@ -1,0 +1,199 @@
+name: bettercode-release
+run-name: BetterCode v${{ inputs.version }}
+
+# Builds the bettercode command for every platform and the desktop app for macOS, Windows x64 and Linux x64, then
+# publishes them with the installers (bettercode/install, bettercode/install.ps1) as the GitHub release v<version>.
+# The builds are unsigned; the installers prepare them so they open without warnings.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (e.g. 2.3.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: bettercode-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  OPENCODE_VERSION: ${{ inputs.version }}
+  OPENCODE_CHANNEL: latest
+
+jobs:
+  build-cli:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check version
+        run: |
+          [[ "$OPENCODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 2.3.0, got '$OPENCODE_VERSION'"; exit 1; }
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+      - name: Fetch models catalog
+        run: bun packages/core/script/update-models-snapshot.ts .cache/models-catalog/api.json
+      - name: Build
+        working-directory: packages/cli
+        run: bun run build && rm -rf dist/.bun
+        env:
+          BUN_COMPILE_RELEASE: bun-v1.4.4
+          OPENCODE_MODELS_SNAPSHOT: ${{ github.workspace }}/.cache/models-catalog/api.json
+          GH_TOKEN: ${{ github.token }} # read-only; raises the rate limit for Bun release downloads
+      - name: Archive
+        run: |
+          mkdir -p release
+          for dir in packages/cli/dist/cli-*/; do
+            target=$(basename "$dir")
+            target=${target#cli-}
+            stage=$(mktemp -d)
+            if [[ $target == windows-* ]]; then
+              cp "$dir/bin/opencode.exe" "$stage/bettercode.exe"
+              (cd "$stage" && zip -q "$GITHUB_WORKSPACE/release/bettercode-$target.zip" bettercode.exe)
+            else
+              cp "$dir/bin/opencode" "$stage/bettercode"
+              chmod 755 "$stage/bettercode"
+              tar -czf "release/bettercode-$target.tar.gz" -C "$stage" bettercode
+            fi
+          done
+          cp bettercode/install bettercode/install.ps1 release/
+          ls -la release
+      - name: Smoke test
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke"
+          tar -xzf release/bettercode-linux-x64.tar.gz -C "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bettercode" --version
+      - name: Upload CLI for the desktop builds
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cli-dist
+          path: packages/cli/dist
+          if-no-files-found: error
+      - name: Upload release files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-cli
+          path: release
+          if-no-files-found: error
+
+  build-desktop:
+    needs: build-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: darwin-arm64, host: macos-26, install: --os=darwin --cpu=arm64 }
+          - { target: darwin-x64, host: macos-26-intel, install: --os=darwin --cpu=x64 }
+          - { target: windows-x64, host: windows-2025, install: "" }
+          - { target: linux-x64, host: ubuntu-24.04, install: "" }
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Download CLI
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: cli-dist
+          path: packages/cli/dist
+      - name: Set up Bun
+        uses: ./.github/actions/setup-bun
+        with:
+          install-flags: ${{ matrix.install }}
+      - name: Set up rpm
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm
+      - name: Build
+        working-directory: packages/desktop
+        run: bun run build
+        env:
+          OPENCODE_TARGET: ${{ matrix.target }}
+          NODE_OPTIONS: --max-old-space-size=4096
+      - name: Pack
+        working-directory: packages/desktop
+        timeout-minutes: 60
+        run: bun run pack
+        env:
+          OPENCODE_TARGET: ${{ matrix.target }}
+      # The first pack leaves the unpacked app; the second wraps it in the NSIS installer.
+      - name: Pack Windows installer
+        if: runner.os == 'Windows'
+        working-directory: packages/desktop
+        timeout-minutes: 30
+        run: |
+          mv ../../dist/desktop/app "$RUNNER_TEMP/app"
+          OPENCODE_DESKTOP_APP="$RUNNER_TEMP/app" bun run pack
+        env:
+          OPENCODE_TARGET: ${{ matrix.target }}
+      - name: Collect
+        run: |
+          mkdir -p release
+          shopt -s nullglob
+          case "${{ matrix.target }}" in
+            darwin-*)
+              cpu=${{ matrix.target }}
+              cpu=${cpu#darwin-}
+              gzip -c dist/desktop/opencode-desktop-mac-*.app.tar > "release/bettercode-desktop-darwin-$cpu.app.tar.gz"
+              ;;
+            windows-x64)
+              cp dist/desktop/opencode-desktop-win-x64.exe release/bettercode-desktop-windows-x64-setup.exe
+              ;;
+            linux-x64)
+              for file in dist/desktop/*.AppImage; do cp "$file" release/bettercode-desktop-linux-x64.AppImage; done
+              for file in dist/desktop/*.deb; do cp "$file" release/bettercode-desktop-linux-x64.deb; done
+              for file in dist/desktop/*.rpm; do cp "$file" release/bettercode-desktop-linux-x64.rpm; done
+              ;;
+          esac
+          ls -la release
+          [ -n "$(ls release)" ]
+      - name: Upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-desktop-${{ matrix.target }}
+          path: release
+          if-no-files-found: error
+
+  publish:
+    needs: [build-cli, build-desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          sparse-checkout: bettercode
+      - name: Download
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+      - name: Checksums
+        working-directory: release
+        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed "s/{{version}}/$OPENCODE_VERSION/g; s#{{repository}}#$GITHUB_REPOSITORY#g" bettercode/release-notes.md > "$RUNNER_TEMP/notes.md"
+          gh release create "v$OPENCODE_VERSION" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "BetterCode $OPENCODE_VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --latest

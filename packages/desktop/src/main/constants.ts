@@ -15,12 +15,12 @@ const appNames: Record<string, string> = {
 }
 
 const appIDs: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "dev.bettercode.desktop.dev",
+  beta: "dev.bettercode.desktop.beta",
+  prod: "dev.bettercode.desktop",
 }
 
 // Local renderer/server mode keeps the dev application identity.
 export const APP_NAME = app.isPackaged ? appNames[CHANNEL] : "BetterCode Dev"
 
-export const APP_ID = app.isPackaged ? appIDs[CHANNEL] : "ai.opencode.desktop.dev"
+export const APP_ID = app.isPackaged ? appIDs[CHANNEL] : "dev.bettercode.desktop.dev"

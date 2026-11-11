@@ -9,7 +9,11 @@ import { roots } from "#global-roots"
 import { Flock } from "./flock.js"
 import { makeGlobalNode } from "./effect/app-node.js"
 
-const app = "opencode"
+declare const OPENCODE_APP_NAME: string | undefined
+
+// Release builds of BetterCode define their own name, so their data, config and service registration stay apart from
+// an installed OpenCode. Source runs and tests keep the upstream name.
+const app = typeof OPENCODE_APP_NAME === "string" ? OPENCODE_APP_NAME : "opencode"
 const { data, cache, config, state, tmp } = roots(app)
 
 const paths = {

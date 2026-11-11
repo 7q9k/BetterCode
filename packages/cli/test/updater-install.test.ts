@@ -60,6 +60,7 @@ function fixture(
               const url = input instanceof Request ? input.url : input.toString()
               requests.push(url)
               if (new URL(url).hostname === "formulae.brew.sh") return Response.json({ versions: { stable: "2.0.21" } })
+              if (new URL(url).hostname === "api.github.com") return Response.json({ tag_name: "v2.3.4" })
               return Response.json({ version: "2.3.4", metadata: { package: releasePackage } })
             },
             { preconnect: fetch.preconnect },
@@ -382,7 +383,7 @@ it.live("bun ignores install cache cleanup failures", () =>
       const installer = test.commands[0]?.[3]
       expect(installer).toStartWith(path.join(test.global.cache, "update-"))
       expect(test.commands).toEqual([
-        ["curl", "-fsSL", "-o", installer, "https://opencode.ai/v2/install"],
+        ["curl", "-fsSL", "-o", installer, "https://github.com/7q9k/BetterCode/releases/latest/download/install"],
         ...(failure === "download" ? [] : [[test.bash, installer, "--version", "2.3.4-beta.1", "--no-modify-path"]]),
       ])
       expect(yield* test.fs.readDirectory(test.global.cache)).toEqual([])
@@ -643,7 +644,7 @@ windows("windows links the curl binary before the installer replaces it", () =>
       false,
       "@opencode/cli",
       undefined,
-      (_root, home) => Effect.succeed(path.join(home, ".opencode", "bin", "opencode.exe")),
+      (_root, home) => Effect.succeed(path.join(home, ".bettercode", "bin", "bettercode.exe")),
     )
     layout.executable = test.executable
     layout.cache = test.global.cache
@@ -670,7 +671,7 @@ unix("curl method detection resolves symlinked home directories", () =>
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem
           const realHome = path.join(root, "real-home")
-          const bin = path.join(realHome, ".opencode", "bin", "opencode")
+          const bin = path.join(realHome, ".bettercode", "bin", "bettercode")
           yield* fs.makeDirectory(path.dirname(bin), { recursive: true })
           yield* fs.symlink(realHome, home)
           return bin

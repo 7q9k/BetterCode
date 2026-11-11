@@ -1,114 +1,64 @@
 <p align="center">
-  <a href="https://opencode.ai">
-    <picture>
-      <source srcset=".github/assets/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset=".github/assets/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src=".github/assets/logo-ornate-light.svg" alt="OpenCode logo">
-    </picture>
-  </a>
+  <img src="bettercode-logo.png" alt="BetterCode" width="360">
 </p>
-<p align="center">The open source AI coding agent.</p>
+<p align="center">An AI coding agent for your terminal and desktop, with a team of agents that plan and build together.</p>
 <p align="center">
-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
-  <a href="https://www.npmjs.com/package/@opencode/cli"><img alt="npm" src="https://img.shields.io/npm/v/@opencode/cli?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/release.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/7q9k/BetterCode/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/7q9k/BetterCode?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/7q9k/BetterCode?style=flat-square"></a>
 </p>
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.zh.md">简体中文</a> |
-  <a href="README.zht.md">繁體中文</a> |
-  <a href="README.ko.md">한국어</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.bs.md">Bosanski</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.uk.md">Українська</a> |
-  <a href="README.bn.md">বাংলা</a> |
-  <a href="README.gr.md">Ελληνικά</a> |
-  <a href="README.vi.md">Tiếng Việt</a>
-</p>
-
-[![OpenCode Terminal UI](services/site/public/v1/docs/assets/lander/screenshot.png)](https://opencode.ai)
+![BetterCode start screen](bettercode/screenshots/start.png)
 
 ---
 
 ### Installation
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/v2/install | bash
-
-# Package managers
-npm i -g @opencode/cli@latest      # or bun/pnpm/yarn
-brew install anomalyco/tap/opencode-v2 # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-beta              # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run github:anomalyco/opencode  # Nix
-```
-
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
-
-### Desktop App (BETA)
-
-OpenCode is also available as a desktop application. Download it from [opencode.ai/download](https://opencode.ai/download).
-
-| Platform              | Download                           |
-| --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
-| Windows               | `opencode-desktop-win-x64.exe`     |
-| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+**macOS and Linux**
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
+curl -fsSL https://github.com/7q9k/BetterCode/releases/latest/download/install | bash
 ```
 
-#### Installation Directory
+**Windows (PowerShell)**
 
-The install script installs OpenCode to `$HOME/.opencode/bin`.
+```powershell
+irm https://github.com/7q9k/BetterCode/releases/latest/download/install.ps1 | iex
+```
 
-### Agents
+One command installs the `bettercode` command into `~/.bettercode/bin` and the BetterCode desktop app (macOS, Windows x64, Linux x64). Run it again to update; `bettercode upgrade` updates the command as well.
 
-OpenCode includes two built-in agents you can switch between with the `Tab` key.
+Then start it in any project:
 
-- **build** - Default, full-access agent for development work
-- **plan** - Read-only agent for analysis and code exploration
-  - Denies file edits by default
-  - Asks permission before running bash commands
-  - Ideal for exploring unfamiliar codebases or planning changes
+```bash
+cd my-project
+bettercode
+```
 
-Also included is a **general** subagent for complex searches and multistep tasks.
-This is used internally and can be invoked using `@general` in messages.
+| Option | bash | PowerShell |
+| --- | --- | --- |
+| Only the `bettercode` command, no desktop app | `\| bash -s -- --no-desktop` | `$env:BETTERCODE_NO_DESKTOP = "1"` |
+| A specific version | `\| bash -s -- --version 2.3.0` | `$env:BETTERCODE_VERSION = "2.3.0"` |
 
-Learn more about [agents](https://opencode.ai/docs/agents).
+Every release also lists the single files (command archives, macOS app bundles, Windows installer, `.AppImage`, `.deb`, `.rpm`) on the [releases page](https://github.com/7q9k/BetterCode/releases/latest).
 
-### Documentation
+### What BetterCode adds
 
-For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
+- **Agent team** – a Team tab that shows each agent as it starts, with an edit view for the team.
+- **Plans you can see** – richer plans with plan views and a graph of the plan's steps; `/dag` runs wider graphs with lighter checks.
+- **Every model** – pick any model your providers offer, from Claude Opus 5.5 and Fable 5.2 to free models.
+- **Live dictation** – speak into the composer; speech is transcribed locally with Whisper while you talk, segment by segment.
+- **A new look** – an animated ASCII start screen and the BetterCode identity across terminal, desktop and web.
 
-### Contributing
+![Model picker with Claude Fable 5.2 and Claude Opus 5.5](bettercode/screenshots/models.png)
 
-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+### Side by side with OpenCode
 
-### Building on OpenCode
+BetterCode keeps its own configuration, sessions and background service (`~/.config/bettercode`, `~/.local/share/bettercode`), so it runs next to an installed OpenCode without touching it.
 
-If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
+### Releases
+
+Maintainers publish a release by running the **bettercode-release** workflow (Actions → bettercode-release → Run workflow) with a version such as `2.3.0`. It builds the command for every platform and the desktop app, and publishes them with both installers as the GitHub release `v2.3.0`.
 
 ---
 
-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+BetterCode is based on [OpenCode](https://github.com/anomalyco/opencode) and released under the same [MIT license](LICENSE). It is not built by the OpenCode team and is not affiliated with them in any way.

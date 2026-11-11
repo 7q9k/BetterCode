@@ -10,7 +10,9 @@ const setup: Plugin.MainSetup = async (ctx) => {
   const builtin = builtinMainContext(ctx)
   const build = ctx.app
   const lifecycle = builtin.lifecycle
-  const enabled = build.packaged
+  // BetterCode's desktop builds are unsigned and published on GitHub without electron-updater feeds; rerunning the
+  // installer updates them. The inherited feed would install OpenCode over BetterCode, so the updater stays off.
+  const enabled = false
   // Holds no resources, so it needs no cleanup.
   const context = logContext(ctx.log.write)
   const runPromise = Effect.runPromiseWith(context)

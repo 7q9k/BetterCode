@@ -11,6 +11,8 @@ import { RetainedImage } from "./retained-image"
 import { action, parseReleaseVersion, type Policy } from "./updater-action"
 import { errorMessage } from "../util/error"
 
+const BETTERCODE_REPOSITORY = "7q9k/BetterCode"
+
 export const methods = ["curl", "npm", "pnpm", "bun", "yarn", "vp", "brew", "winget"] as const
 
 export type Method = (typeof methods)[number]
@@ -229,9 +231,9 @@ const make = Effect.gen(function* () {
 
   const curlPath = path.resolve(
     global.home,
-    ".opencode",
+    ".bettercode",
     "bin",
-    process.platform === "win32" ? "opencode.exe" : "opencode",
+    process.platform === "win32" ? "bettercode.exe" : "bettercode",
   )
   const curlBinary = yield* fs.realPath(curlPath).pipe(Effect.orElseSucceed(() => curlPath))
 
@@ -313,19 +315,22 @@ const make = Effect.gen(function* () {
   }
 
   const release = Effect.fnUntraced(function* (method?: Method) {
+    // BetterCode is released on GitHub as tags `v<version>` and installed by the release's installer (curl).
+    const github = method === undefined || method === "curl"
     const distribution = method === "brew" ? "homebrew" : "npm"
     // Homebrew Core builds its formula on its own schedule, so the tap release does not describe it.
     const core = method === "brew" && installedFormula === "opencode"
+    const url = github
+      ? `https://api.github.com/repos/${BETTERCODE_REPOSITORY}/releases/latest`
+      : core
+        ? "https://formulae.brew.sh/api/formula/opencode.json"
+        : `https://opencode.ai/update/api/${encodeURIComponent(channel)}/${encodeURIComponent(OPENCODE_ARTIFACT)}/${distribution}?current=${encodeURIComponent(OPENCODE_VERSION)}`
     const response = yield* Effect.tryPromise({
       try: (signal) =>
-        fetch(
-          core
-            ? "https://formulae.brew.sh/api/formula/opencode.json"
-            : `https://opencode.ai/update/api/${encodeURIComponent(channel)}/${encodeURIComponent(OPENCODE_ARTIFACT)}/${distribution}?current=${encodeURIComponent(OPENCODE_VERSION)}`,
-          {
-            signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
-          },
-        ),
+        fetch(url, {
+          ...(github ? { headers: { accept: "application/vnd.github+json" } } : {}),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+        }),
       catch: (cause) =>
         new UpgradeError(
           {
@@ -344,8 +349,12 @@ const make = Effect.gen(function* () {
           retry: "Try again in a few minutes.",
         }),
       )
-    const data: { version?: string; metadata?: { package?: string }; versions?: { stable?: string } } =
-      yield* Effect.tryPromise({
+    const data: {
+      tag_name?: string
+      version?: string
+      metadata?: { package?: string }
+      versions?: { stable?: string }
+    } = yield* Effect.tryPromise({
         try: () => response.json(),
         catch: (cause) =>
           new UpgradeError(
@@ -357,8 +366,8 @@ const make = Effect.gen(function* () {
             { cause },
           ),
       })
-    const version = core ? data.versions?.stable : data.version
-    const packageName = core ? "opencode" : data.metadata?.package
+    const version = github ? data.tag_name?.replace(/^v/, "") : core ? data.versions?.stable : data.version
+    const packageName = github ? "bettercode" : core ? "opencode" : data.metadata?.package
     if (!version || !packageName)
       return yield* Effect.fail(
         new UpgradeError({
@@ -539,8 +548,8 @@ const make = Effect.gen(function* () {
           const installer = path.join(directory, "install")
           yield* runUpgrade({
             method,
-            command: ["curl", "-fsSL", "-o", installer, "https://opencode.ai/v2/install"],
-            displayCommand: ["curl", "-fsSL", "https://opencode.ai/v2/install"],
+            command: ["curl", "-fsSL", "-o", installer, `https://github.com/${BETTERCODE_REPOSITORY}/releases/latest/download/install`],
+            displayCommand: ["curl", "-fsSL", `https://github.com/${BETTERCODE_REPOSITORY}/releases/latest/download/install`],
             title: "Could not download the OpenCode installer",
             retry: "Check your network, then run opencode upgrade again.",
           })
