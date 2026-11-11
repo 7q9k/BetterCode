@@ -20,15 +20,8 @@ export function MigrationStatus(props: { server: ServerReadyData }) {
   const language = useLanguage()
   const initial = createMigrationState()
   const [state, setState] = createSignal(initial.state)
-
-  // Electron's main process credentials sidecar requests (see `wireRendererHeaders`); the Tauri shell hands the
-  // password over instead, see ServerReadyData.
-  const headers = props.server.password
-    ? { Authorization: `Basic ${btoa(`opencode:${props.server.password}`)}` }
-    : undefined
-
-  const client = OpenCode.make({ baseUrl: props.server.url, headers })
-
+  // The main process credentials sidecar requests; see `wireRendererHeaders`.
+  const client = OpenCode.make({ baseUrl: props.server.url })
   let timer: ReturnType<typeof setTimeout> | undefined
   let controller: AbortController | undefined
   // One handle per shown toast: a render that lands after the dismissal disposes its own root at once.
