@@ -15,6 +15,8 @@ import { useTheme } from "../context/theme"
 import { useUpdateNotification } from "../context/update-notification"
 import { useExit } from "../context/exit"
 import { FadeInText } from "../component/fade-in-text"
+import "../component/ascii-scene"
+import { useConfig } from "../config"
 
 let once = false
 const placeholder = {
@@ -32,6 +34,8 @@ export function Home() {
   const data = useData()
   const location = useLocation()
   const dimensions = useTerminalDimensions()
+  const theme = useTheme()
+  const config = useConfig().data
   const [logoWidth, setLogoWidth] = createSignal(0)
   // Global MCP elicitations can arrive without a session route, so keep them reachable from Home.
   const currentLocation = () => route.location ?? data.location.default()
@@ -80,6 +84,18 @@ export function Home() {
 
   return (
     <>
+      {/* The desktop start screen's ASCII scene, behind the logo and the prompt. A terminal cell holds one glyph, so
+          the logo, the prompt and the footer sit on quiet backgrounds instead of interleaving with the scene. */}
+      <box position="absolute" top={0} left={0} right={0} bottom={0} zIndex={0}>
+        <ascii_scene
+          width="100%"
+          height="100%"
+          variant="home"
+          animate={config.animations ?? true}
+          background={theme.background.base}
+          foreground={theme.text.base}
+        />
+      </box>
       <box
         flexGrow={1}
         alignItems="center"
@@ -90,6 +106,7 @@ export function Home() {
         <box height={3} minHeight={0} flexShrink={1} />
         <box
           flexShrink={0}
+          backgroundColor={theme.background.base}
           onSizeChange={function () {
             setLogoWidth(this.width)
           }}
@@ -98,12 +115,20 @@ export function Home() {
         </box>
         <box height={1} flexShrink={0} />
         <UpdateNotification width={logoWidth()} />
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0} position="relative">
+        <box
+          width="100%"
+          maxWidth={75}
+          zIndex={1000}
+          paddingTop={1}
+          flexShrink={0}
+          position="relative"
+          backgroundColor={theme.background.base}
+        >
           <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
         </box>
         <box flexGrow={1} minHeight={0} />
       </box>
-      <box width="100%" flexShrink={0}>
+      <box width="100%" flexShrink={0} backgroundColor={theme.background.base}>
         <Slot path="home.footer" />
       </box>
       <Show when={forms()[0]?.id} keyed>

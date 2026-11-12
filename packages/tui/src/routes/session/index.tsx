@@ -134,6 +134,10 @@ import { SessionGroupView } from "./group-view"
 import { useEntryAnchor } from "./anchor-view"
 import { containsAnchor, createTimelineAnchors, groupID } from "./anchors"
 import { rowsAfter, rowsBefore, rowWeight } from "./mount-budget"
+import { sceneActivity } from "../../component/ascii-scene"
+
+// Rows of the ASCII ground above the prompt.
+const GROUND_ROWS = 4
 export { InlineToolRow } from "./message-parts"
 export { toolDisplay } from "./message-parts"
 
@@ -1574,6 +1578,22 @@ export function Session(props: {
                 </Show>
               </scrollbox>
             </box>
+            {/* The desktop coding view's ASCII ground, a strip above the prompt that comes alive while the model
+                thinks, writes or runs tools. It has its own rows: a terminal cell holds one glyph, so behind the
+                transcript it would interleave with the text. */}
+            <Show when={dimensions().height >= 24}>
+              <box height={GROUND_ROWS} flexShrink={0}>
+                <ascii_scene
+                  width="100%"
+                  height="100%"
+                  variant="ground"
+                  animate={config.animations ?? true}
+                  activity={sceneActivity(data.session.status(route.sessionID) === "running", messages())}
+                  background={theme.background.base}
+                  foreground={theme.text.base}
+                />
+              </box>
+            </Show>
             <box height={1} flexShrink={0} flexDirection="row" justifyContent="flex-end">
               <Show when={firstJump()}>
                 <text fg={theme.text.feedback.info.base}>Loading session history…</text>
