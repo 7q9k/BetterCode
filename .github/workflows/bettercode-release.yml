@@ -98,7 +98,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: darwin-arm64, host: macos-26, install: --os=darwin --cpu=arm64 }
+          # Cross-packaged on the Intel runner: GitHub's macos-26 arm64 pool keeps dropping jobs for lack of capacity, and
+          # macos-15 lacks the Xcode 26 the Icon Composer app icon needs. --cpu=* installs the build tools for this host
+          # and the arm64 native modules for the app; packaging keeps only the arm64 ones and verifies every binary.
+          - { target: darwin-arm64, host: macos-26-intel, install: --os=darwin --cpu=* }
           - { target: darwin-x64, host: macos-26-intel, install: --os=darwin --cpu=x64 }
           - { target: windows-x64, host: windows-2025, install: "" }
           - { target: linux-x64, host: ubuntu-24.04, install: "" }
