@@ -291,6 +291,19 @@ const GROUND_GLYPHS = "abcdefghijklmnopqrstuvwxyz{}()[];=<>/+-*&|.:_"
 // How many columns the writing cursor's trail stays lit behind it.
 const WRITING_TRAIL = 42
 
+// The ground's strata, from loose to packed. The ground thins out with depth instead of filling in, so the strip
+// under the composer stays a soft texture rather than a solid wall of dense glyphs.
+const GROUND_STRATA = ".,:;-=+"
+
+// The crest glyph for a ridge's slope across one column.
+function crest(slope: number) {
+  if (slope > 0.45) return "/"
+
+  if (slope < -0.45) return "\\"
+
+  return Math.abs(slope) < 0.15 ? "_" : "-"
+}
+
 /** What the model is doing now, for the ground's animation. */
 export type GroundActivity = "idle" | "thinking" | "writing" | "tool"
 
@@ -358,11 +371,6 @@ export function AsciiGround(props: { activity: GroundActivity }) {
       context.fillText(char, col * layout.cellWidth + layout.cellWidth / 2, row * CELL_HEIGHT + CELL_HEIGHT / 2)
     }
 
-    const level = (value: number) =>
-      ASCII_RAMP[
-        Math.min(ASCII_RAMP.length - 1, Math.floor(Math.max(0, Math.min(1, value)) * (ASCII_RAMP.length - 1)))
-      ] ?? " "
-
     const draw = (t: number) => {
       const { cols, rows } = layout
       context.clearRect(0, 0, layout.width, layout.height)
@@ -378,22 +386,41 @@ export function AsciiGround(props: { activity: GroundActivity }) {
 
       for (let row = 0; row < rows; row++) {
         const fromBottom = rows - 1 - row - GROUND_LIFT
-        // Fades in from the top of the strip so it has no hard edge.
-        const rise = Math.min(1, row / (rows * 0.6))
+        // Fades in from the top of the strip so it has no hard edge, and out again toward the bottom, where the
+        // composer covers the ground anyway.
+        const rise = Math.min(1, row / (rows * 0.6)) * Math.min(1, 0.35 + (fromBottom + GROUND_LIFT) / (GROUND_LIFT + 4))
 
         for (let col = 0; col < cols; col++) {
           const near = ridge(col, nearShift, false)
           const far = ridge(col, farShift, true)
-          const grain = hash(col + Math.floor(nearShift), row)
+          const grain = hash(col + Math.round(nearShift), row)
+          // Thinking breathes along the ridge as a slow wave; tools send a bright pulse racing along it.
+          const breath = think * (0.5 + 0.5 * Math.sin(t * 1.6 - col * 0.06))
+          const lap = (((col - t * 38) % 90) + 90) % 90
+          const pulse = tool * Math.max(0, 1 - Math.abs(lap - 45) / 4)
 
           if (fromBottom < near) {
-            const depth = (near - fromBottom) / near
-            // Thinking breathes through the ground as a slow wave; tools send a fast pulse through it.
-            const breath = think * (0.5 + 0.5 * Math.sin(t * 1.6 - col * 0.05))
-            const pulse = tool * Math.max(0, 1 - Math.abs(((col - t * 42) % 70) + (col - t * 42 < 0 ? 70 : 0) - 35) / 3)
-            const churn = tool > 0.05 ? hash(col, row + Math.floor(t * 6)) * tool * 0.2 : 0
-            const char = pulse > 0.3 ? "#" : level(0.3 + depth * 0.45 + grain * 0.15 + churn)
-            put(char, col, row, ((0.025 + depth * 0.045) * (1 + energy * 0.7 + breath * 1.6) + pulse * 0.16) * rise)
+            const below = near - fromBottom
+
+            // The crest: a contour line that follows the ridge's slope.
+            if (below < 1) {
+              const slope = ridge(col + 1, nearShift, false) - ridge(col - 1, nearShift, false)
+              const glow = 1 + energy * 0.9 + breath * 1.8 + pulse * 5
+
+              put(pulse > 0.45 ? "=" : crest(slope), col, row, Math.min(0.5, 0.075 * glow) * rise)
+
+              continue
+            }
+
+            // Strata under the crest: bands that follow the ridge, thinning out with depth.
+            const band = 0.5 + 0.5 * Math.sin(below * 1.25 + Math.sin((col + nearShift) * 0.07) * 1.6)
+            const density = 0.62 - below * 0.055
+
+            if (grain < density) {
+              const char = GROUND_STRATA[Math.floor(band * (GROUND_STRATA.length - 1))] ?? "."
+              const alpha = (0.05 - below * 0.0035) * (1 + energy * 0.6 + breath * 1.1) + pulse * 0.05
+              put(char, col, row, alpha * rise)
+            }
 
             continue
           }
@@ -414,25 +441,31 @@ export function AsciiGround(props: { activity: GroundActivity }) {
             }
           }
 
-          // Thinking: thoughts rise from the ridge in a few columns, growing fainter as they climb.
-          if (think > 0.02 && hash(col, 17) < 0.07) {
-            const seed = hash(col, 29)
-            const climb = (t * (0.08 + seed * 0.1) + seed * 7) % 1
-            const height = climb * (rows - GROUND_LIFT - near)
+          // Thinking: thoughts rise from the ridge and sway as they climb, growing smaller and fainter. Each column
+          // carries one, drawn where its sway puts it, so a thought drifts sideways across columns as it rises.
+          if (think > 0.02) {
+            const source = col - Math.round(Math.sin(t * 0.9 + col * 0.3) * 1.5 * ((above + 1) / 10))
 
-            if (Math.abs(above - height) < 0.5) {
-              put(climb < 0.3 ? "o" : climb < 0.65 ? "." : "'", col, row, think * 0.26 * (1 - climb) * rise)
+            if (hash(source, 17) < 0.08) {
+              const seed = hash(source, 29)
+              const climb = (t * (0.07 + seed * 0.09) + seed * 7) % 1
+              const height = climb * (rows - GROUND_LIFT - near)
 
-              continue
+              if (Math.abs(above - height) < 0.5) {
+                put(climb < 0.25 ? "o" : climb < 0.6 ? "°" : climb < 0.85 ? "." : "'", col, row, think * 0.3 * (1 - climb) * rise)
+
+                continue
+              }
             }
           }
 
-          // Tools: sparks kick up from the ground and fall back within a few frames.
+          // Tools: sparks fly up where the pulse passes and fall back within a few frames.
           if (tool > 0.02 && above < 4) {
-            const spark = hash(col, Math.floor(t * 7) + row * 13)
+            const spark = hash(col, Math.floor(t * 8) + row * 13)
+            const nearPulse = Math.max(0, 1 - Math.abs(lap - 45) / 10)
 
-            if (spark < 0.02 * tool) {
-              put(spark < 0.006 ? "*" : "+", col, row, tool * (0.3 - above * 0.05) * rise)
+            if (spark < tool * (0.006 + nearPulse * 0.08)) {
+              put(spark < 0.01 ? "*" : above < 1.5 ? "+" : "'", col, row, tool * (0.34 - above * 0.06) * rise)
 
               continue
             }

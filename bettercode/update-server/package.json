@@ -1,0 +1,6 @@
+{
+  "name": "@bettercode/update",
+  "private": true,
+  "type": "module",
+  "description": "BetterCode's update feed and download page on bettercode.vercel.app, backed by the Supabase releases table."
+}

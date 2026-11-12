@@ -12,6 +12,11 @@ on:
         description: "Version to release, without the v (e.g. 0.0.1)"
         required: true
         type: string
+      announce:
+        description: "Offer this release to the desktop apps' updater right away (otherwise publish it in Supabase later)"
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: bettercode-release
@@ -197,3 +202,43 @@ jobs:
             --title "BetterCode $OPENCODE_VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             --latest
+      # Registers the desktop files with the update server (Supabase table `releases`, served on
+      # bettercode.vercel.app). With announce off the rows are stored unpublished; set `published` in Supabase to offer
+      # the update later.
+      - name: Register update
+        env:
+          BETTERCODE_PUBLISH_TOKEN: ${{ secrets.BETTERCODE_PUBLISH_TOKEN }}
+          ANNOUNCE: ${{ inputs.announce }}
+        run: |
+          if [ -z "$BETTERCODE_PUBLISH_TOKEN" ]; then
+            echo "::warning::BETTERCODE_PUBLISH_TOKEN is not set, so desktop apps are not told about this release."
+            exit 0
+          fi
+          node - <<'EOF' > "$RUNNER_TEMP/update.json"
+          const { createHash } = require("node:crypto")
+          const { readFileSync, statSync, existsSync } = require("node:fs")
+          const kinds = [
+            ["bettercode-desktop-windows-x64-setup.exe", "windows-x64", "installer"],
+            ["bettercode-desktop-darwin-arm64.app.tar.gz", "darwin-arm64", "app"],
+            ["bettercode-desktop-darwin-x64.app.tar.gz", "darwin-x64", "app"],
+            ["bettercode-desktop-linux-x64.AppImage", "linux-x64", "appimage"],
+            ["bettercode-desktop-linux-x64.deb", "linux-x64", "deb"],
+            ["bettercode-desktop-linux-x64.rpm", "linux-x64", "rpm"],
+          ]
+          const files = kinds
+            .filter(([name]) => existsSync(`release/${name}`))
+            .map(([name, platform, kind]) => ({
+              platform,
+              kind,
+              file_name: name,
+              sha512: createHash("sha512").update(readFileSync(`release/${name}`)).digest("base64"),
+              size: statSync(`release/${name}`).size,
+            }))
+          process.stdout.write(
+            JSON.stringify({ version: process.env.OPENCODE_VERSION, published: process.env.ANNOUNCE !== "false", files }),
+          )
+          EOF
+          curl -fsS -X POST "https://anndpsqsihuohtmjisvx.supabase.co/functions/v1/publish-release" \
+            -H "x-publish-token: $BETTERCODE_PUBLISH_TOKEN" \
+            -H "content-type: application/json" \
+            --data-binary "@$RUNNER_TEMP/update.json"

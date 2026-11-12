@@ -1,6 +1,14 @@
 import { showToast } from "@opencode/ui/toast"
-import { createSignal, lazy, onCleanup, Suspense, untrack } from "solid-js"
-import { Command, createKeyed, SettingsPage, TitlebarItem, type SetupContext, type Plugin } from "@opencode/plugin/gui"
+import { createSignal, lazy, onCleanup, Show, Suspense, untrack } from "solid-js"
+import {
+  Command,
+  createKeyed,
+  SettingsPage,
+  Slot,
+  TitlebarItem,
+  type SetupContext,
+  type Plugin,
+} from "@opencode/plugin/gui"
 import { onIdle } from "@opencode/plugin/gui/builtin"
 import { Updater } from "@opencode/plugin/gui/updater"
 import { updaterAction } from "./action"
@@ -89,6 +97,42 @@ const setup: Plugin.Setup<typeof definition> = (ctx) => {
       busy: installing,
       run: () => act("install"),
     }
+  })
+
+  // "Later" hides the banner for that version until the app restarts; a newer version shows it again.
+  const [dismissed, setDismissed] = createSignal<string>()
+
+  const Banner = lazy(() => import("./banner").then((module) => ({ default: module.UpdateBanner })))
+
+  const offer = () => {
+    const current = state()
+
+    if (current?.status !== "ready" && current?.status !== "download-required") return undefined
+
+    return current.version === dismissed() ? undefined : current
+  }
+
+  ctx.add(Slot, {
+    at: "window.bottom",
+    render: () => (
+      <Show when={offer()} keyed>
+        {(current) => (
+          <Suspense>
+            <Banner
+              title={ctx.t("banner.title")}
+              message={ctx.t(current.status === "ready" ? "banner.ready" : "banner.download", {
+                version: current.version,
+              })}
+              action={ctx.t(updaterAction(current, windowState()).label)}
+              later={ctx.t("banner.later")}
+              busy={windowState().status === "installing"}
+              onRun={() => act("install")}
+              onLater={() => setDismissed(current.version)}
+            />
+          </Suspense>
+        )}
+      </Show>
+    ),
   })
 
   ctx.add(SettingsPage, {

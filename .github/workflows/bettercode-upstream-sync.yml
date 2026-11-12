@@ -1,0 +1,89 @@
+name: bettercode-upstream-sync
+
+# Keeps BetterCode on the newest OpenCode: merges anomalyco/opencode's `dev` into `bettercode` every day. A clean
+# merge that type-checks is pushed straight to `bettercode`; a merge with conflicts or type errors becomes a pull
+# request from `upstream-sync` instead. Shipping it to users stays a separate step: run bettercode-release.
+#
+# Needs the secret UPSTREAM_SYNC_TOKEN, a fine-grained token for 7q9k/BetterCode with Contents, Pull requests and
+# Workflows read and write: OpenCode's changes include workflow files, which GITHUB_TOKEN may not push.
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: bettercode-upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+    steps:
+      - name: Check token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Set the UPSTREAM_SYNC_TOKEN secret (see the comment at the top of this workflow)."
+            exit 1
+          fi
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: bettercode
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+      - name: Merge OpenCode
+        id: merge
+        run: |
+          git config user.name "BetterCode sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/anomalyco/opencode.git
+          git fetch --no-tags upstream dev
+          if git merge-base --is-ancestor upstream/dev HEAD; then
+            echo "Already up to date with OpenCode."
+            echo "result=current" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "commits=$(git rev-list --count HEAD..upstream/dev)" >> "$GITHUB_OUTPUT"
+          if git merge --no-edit -m "chore: sync OpenCode $(git rev-parse --short upstream/dev)" upstream/dev; then
+            echo "result=merged" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up Bun
+        if: steps.merge.outputs.result == 'merged'
+        uses: ./.github/actions/setup-bun
+      - name: Type-check
+        id: check
+        if: steps.merge.outputs.result == 'merged'
+        continue-on-error: true
+        run: bun turbo typecheck --concurrency=2
+      - name: Push
+        if: steps.merge.outputs.result == 'merged' && steps.check.outcome == 'success'
+        run: git push origin HEAD:bettercode
+      - name: Open a pull request
+        if: steps.merge.outputs.result == 'conflict' || (steps.merge.outputs.result == 'merged' && steps.check.outcome != 'success')
+        env:
+          RESULT: ${{ steps.merge.outputs.result }}
+          COMMITS: ${{ steps.merge.outputs.commits }}
+        run: |
+          git push --force origin upstream/dev:refs/heads/upstream-sync
+          reason=$([ "$RESULT" = conflict ] && echo "has merge conflicts with BetterCode's changes" || echo "merges, but the type-check fails")
+          body="OpenCode's dev branch is $COMMITS commit(s) ahead of BetterCode, and the merge $reason. Resolve it here, then run bettercode-release to ship it."
+          if [ -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --head upstream-sync --state open --json number --jq '.[].number')" ]; then
+            gh pr create --repo "$GITHUB_REPOSITORY" --base bettercode --head upstream-sync \
+              --title "chore: sync OpenCode" --body "$body"
+          else
+            gh pr comment upstream-sync --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi

@@ -216,7 +216,7 @@ export function getConfig() {
         productName: "BetterCode Dev",
         publish: {
           provider: "generic",
-          url: "https://opencode.ai/update/api/dev/desktop/opencode/",
+          url: "https://bettercode.vercel.app/update/dev/desktop/",
           channel: "latest",
         },
         deb: { packageName: "bettercode-dev", fpm: [...previewCompressionFpm("deb"), metainfoFpm(appId)] },
@@ -235,7 +235,7 @@ export function getConfig() {
         protocols: { name: "BetterCode Beta", schemes: ["opencode"] },
         publish: {
           provider: "generic",
-          url: "https://opencode.ai/update/api/beta/desktop/opencode/",
+          url: "https://bettercode.vercel.app/update/beta/desktop/",
           channel: "latest",
         },
         deb: { packageName: "bettercode-beta", fpm: [...previewCompressionFpm("deb"), metainfoFpm(appId)] },
@@ -259,7 +259,7 @@ export function getConfig() {
         dmg: { icon: "resources/icons/icon.icns" },
         publish: {
           provider: "generic",
-          url: "https://opencode.ai/update/api/latest/desktop/opencode/",
+          url: "https://bettercode.vercel.app/update/latest/desktop/",
           channel: "latest",
         },
         deb: { packageName: "bettercode", fpm: [metainfoFpm(appId)] },

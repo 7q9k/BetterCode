@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
-import { app, autoUpdater } from "electron"
+import { app, autoUpdater, shell } from "electron"
 import pkg from "electron-updater"
 import { Effect } from "effect"
 import type { Platform } from "./machine"
@@ -14,7 +14,7 @@ const restartTimeout = 10_000
 const unpackTimeout = 120_000
 
 export const make = Effect.fn("Updater.platform")(function* (channel: string) {
-  const userAgent = `opencode/${channel === "prod" ? "latest" : channel}/${app.getVersion()}/desktop`
+  const userAgent = `bettercode/${channel === "prod" ? "latest" : channel}/${app.getVersion()}/desktop`
   const runFork = Effect.runForkWith(yield* Effect.context())
   updateClient.logger = {
     info: (...args) => runFork(Effect.logInfo(...args)),
@@ -41,6 +41,12 @@ export const make = Effect.fn("Updater.platform")(function* (channel: string) {
         const result = await updateClient.checkForUpdates()
 
         if (!result?.isUpdateAvailable) return undefined
+
+        // macOS installs an update only into an app signed with an Apple developer certificate, which BetterCode's
+        // builds are not, so the Mac offers the release page instead.
+        if (process.platform === "darwin")
+          return { mode: "external", version: result.updateInfo.version, url: releasePage(result.updateInfo.version) } as const
+
         const files = result.updateInfo.files
         // electron-updater picks the installer whose name contains process.arch, which emulation on Windows ARM64
         // reports as x64. downloadUpdate() reads this same list, so keeping only the ARM64 installer moves the install
@@ -60,8 +66,17 @@ export const make = Effect.fn("Updater.platform")(function* (channel: string) {
     }),
     stageUpdate,
     installAndRestart,
+    externalInstall: (url: string) =>
+      Effect.tryPromise({
+        try: () => shell.openExternal(url),
+        catch: (error) => error,
+      }),
   } satisfies Platform
 })
+
+function releasePage(version: string) {
+  return `https://github.com/7q9k/BetterCode/releases/tag/v${version}`
+}
 
 function stageUpdate(options: { readonly differential: boolean }) {
   if (process.platform !== "darwin")

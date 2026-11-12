@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BetterCode</title>
+    <meta name="description" content="An AI coding agent for your terminal and desktop, with a team of agents that plan and build together." />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --bg: #111111;
+        --surface: #1a1a1a;
+        --border: #2a2a2a;
+        --text: #ededed;
+        --muted: #9a9a9a;
+        --accent: #ffffff;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 760px; margin: 0 auto; padding: 72px 16px 96px; }
+      header { display: flex; align-items: center; gap: 16px; }
+      header img { width: 56px; height: 56px; }
+      h1 { margin: 0; font-size: 32px; letter-spacing: -0.02em; }
+      .tagline { margin: 4px 0 0; color: var(--muted); }
+      .version { margin-top: 32px; color: var(--muted); font-size: 13px; }
+      .version strong { color: var(--text); }
+      h2 { margin: 40px 0 12px; font-size: 16px; }
+      pre {
+        margin: 0 0 12px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font: 13px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+      }
+      .label { margin: 16px 0 6px; color: var(--muted); font-size: 13px; }
+      ul { margin: 0; padding: 0; list-style: none; }
+      li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+      li span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+      a { color: var(--accent); }
+      footer { margin-top: 56px; color: var(--muted); font-size: 13px; }
+      img.shot { width: 100%; margin-top: 40px; border: 1px solid var(--border); border-radius: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="/logo.svg" alt="" />
+        <div>
+          <h1>BetterCode</h1>
+          <p class="tagline">An AI coding agent for your terminal and desktop, with a team of agents that plan and build together.</p>
+        </div>
+      </header>
+
+      <p class="version" id="version">Latest release: loading…</p>
+
+      <img class="shot" src="https://raw.githubusercontent.com/7q9k/BetterCode/HEAD/bettercode/screenshots/team.png" alt="The coding area with the Team overview" />
+
+      <h2>Install</h2>
+      <p class="label">macOS and Linux</p>
+      <pre>curl -fsSL https://github.com/7q9k/BetterCode/releases/latest/download/install | bash</pre>
+      <p class="label">Windows (PowerShell)</p>
+      <pre>irm https://github.com/7q9k/BetterCode/releases/latest/download/install.ps1 | iex</pre>
+      <p class="label">Installs the bettercode command and the desktop app. The desktop app updates itself from here.</p>
+
+      <h2>Downloads</h2>
+      <ul id="files"><li>Loading…</li></ul>
+
+      <footer>
+        Based on <a href="https://github.com/anomalyco/opencode">OpenCode</a>, MIT licensed. Not affiliated with the OpenCode team.
+        Source on <a href="https://github.com/7q9k/BetterCode">GitHub</a>.
+      </footer>
+    </main>
+    <script>
+      const names = {
+        "windows-x64": "Windows",
+        "darwin-arm64": "macOS (Apple Silicon)",
+        "darwin-x64": "macOS (Intel)",
+        "linux-x64": "Linux",
+      }
+      fetch("/api/latest")
+        .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+        .then((latest) => {
+          document.getElementById("version").innerHTML = `Latest release: <strong>v${latest.version}</strong>`
+          const list = document.getElementById("files")
+          list.replaceChildren(
+            ...latest.files.map((file) => {
+              const item = document.createElement("li")
+              const link = document.createElement("a")
+              link.href = file.url
+              link.textContent = `${names[file.platform] ?? file.platform} · ${file.kind}`
+              const size = document.createElement("span")
+              size.textContent = `${Math.round(file.size / 1048576)} MB`
+              item.append(link, size)
+              return item
+            }),
+          )
+        })
+        .catch(() => {
+          document.getElementById("version").textContent = "Latest release: see GitHub"
+          document.getElementById("files").innerHTML =
+            '<li><a href="https://github.com/7q9k/BetterCode/releases/latest">All downloads on GitHub</a></li>'
+        })
+    </script>
+  </body>
+</html>

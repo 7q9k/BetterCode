@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/update/:channel/desktop/:file", "destination": "/api/update?channel=:channel&file=:file" },
+    { "source": "/update/:channel/desktop/:product/:file", "destination": "/api/update?channel=:channel&file=:file" }
+  ]
+}
