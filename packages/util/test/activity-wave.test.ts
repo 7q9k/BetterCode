@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { waveBar, waveLevels, WAVE_BARS } from "../src/activity-wave"
+import { waveBar, waveLevels, WAVE_BARS } from "../src/activity-wave.js"
 
 test("wave levels stay in range, taper at the ends and loop seamlessly", () => {
   const levels = waveLevels(24, 1.3, "working")
