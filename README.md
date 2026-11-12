@@ -52,19 +52,36 @@ Every release also lists the single files (command archives, macOS app bundles, 
 ## Features
 
 - **Agent team.** The lead plans and hands work to specialists: architect, explore, tester, reviewer, debugger and more. The Team tab shows who is on the team, what each agent is doing and what it did last.
-- **Plans you can see.** Plans render as task graphs in the timeline and in a Plans tab; `/dag` runs wider graphs with lighter checks.
+- **Plans you can see.** Before it starts, the agent writes its plan as a checklist pinned above the prompt, in the desktop app and the terminal, and ticks off each step as it goes. Bigger plans render as task graphs in the timeline and in a Plans tab; `/dag` runs wider graphs with lighter checks.
 - **Every model.** Pick any model your providers offer, from Claude Opus 5.5 and Fable 5.2 to free models.
 - **Live dictation.** Speak into the composer. Speech is transcribed locally with Whisper while you talk, segment by segment.
-- **Terminal, desktop and web.** The same sessions in the terminal UI, the desktop app and the browser, with an animated ASCII start screen.
+- **Terminal, desktop and web.** The same sessions in the terminal UI, the desktop app and the browser, with the same animated ASCII scene and monochrome look everywhere.
+- **Browser control.** Agents drive the in-app browser by element or by screen coordinates, so any model that reads screenshots can move the pointer, click and drag.
 
 <table>
   <tr>
-    <td width="50%"><img src="bettercode/screenshots/start.png" alt="Start screen"></td>
-    <td width="50%"><img src="bettercode/screenshots/models.png" alt="Model picker"></td>
+    <td width="50%"><img src="bettercode/screenshots/start.png" alt="Desktop start screen"></td>
+    <td width="50%"><img src="bettercode/screenshots/plan.png" alt="The plan pinned above the prompt in the desktop app"></td>
   </tr>
   <tr>
-    <td align="center">Start screen</td>
+    <td align="center">Desktop start screen</td>
+    <td align="center">The plan, ticked off as the agent works</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="bettercode/screenshots/tui-home.png" alt="Terminal start screen"></td>
+    <td width="50%"><img src="bettercode/screenshots/tui-plan.png" alt="The plan above the prompt in the terminal"></td>
+  </tr>
+  <tr>
+    <td align="center">Terminal start screen</td>
+    <td align="center">The same plan in the terminal</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="bettercode/screenshots/models.png" alt="Desktop model picker"></td>
+    <td width="50%"><img src="bettercode/screenshots/tui-models.png" alt="Terminal model picker"></td>
+  </tr>
+  <tr>
     <td align="center">Model picker</td>
+    <td align="center">Every model, in the terminal too</td>
   </tr>
 </table>
 
