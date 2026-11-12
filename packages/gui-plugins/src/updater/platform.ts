@@ -23,7 +23,11 @@ export const make = Effect.fn("Updater.platform")(function* (channel: string) {
     debug: (...args) => runFork(Effect.logDebug(...args)),
   }
   updateClient.channel = "latest"
-  updateClient.requestHeaders = { "User-Agent": userAgent }
+  // Official builds carry the update key (built in by the release workflow); the update server answers only them.
+  const updateKey: string = import.meta.env.BETTERCODE_UPDATE_KEY ?? ""
+  updateClient.requestHeaders = updateKey
+    ? { "User-Agent": userAgent, "x-bettercode-key": updateKey }
+    : { "User-Agent": userAgent }
   updateClient.allowPrerelease = false
   updateClient.allowDowngrade = true
   updateClient.autoDownload = false

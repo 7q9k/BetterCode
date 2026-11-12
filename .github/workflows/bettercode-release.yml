@@ -121,6 +121,19 @@ jobs:
       - name: Set up rpm
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm
+      # The update key goes into official builds only, so the update server offers updates to them alone.
+      - name: Fetch update key
+        env:
+          BETTERCODE_PUBLISH_TOKEN: ${{ secrets.BETTERCODE_PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$BETTERCODE_PUBLISH_TOKEN" ]; then
+            echo "::warning::BETTERCODE_PUBLISH_TOKEN is not set, so this build gets no updates."
+            exit 0
+          fi
+          key=$(curl -fsS -X POST "https://anndpsqsihuohtmjisvx.supabase.co/functions/v1/update-key" \
+            -H "x-publish-token: $BETTERCODE_PUBLISH_TOKEN" | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>process.stdout.write(JSON.parse(s).key))')
+          echo "::add-mask::$key"
+          echo "BETTERCODE_UPDATE_KEY=$key" >> "$GITHUB_ENV"
       - name: Build
         working-directory: packages/desktop
         run: bun run build

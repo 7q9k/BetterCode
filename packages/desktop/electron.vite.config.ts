@@ -45,6 +45,8 @@ export default defineConfig(({ command }) => {
       define: {
         // Local renderer/server mode still uses the dev application identity and updater policy.
         "import.meta.env.OPENCODE_CHANNEL": JSON.stringify(channel === "local" ? "dev" : channel),
+        // Only the release workflow sets it: official builds send it so bettercode.vercel.app offers them updates.
+        "import.meta.env.BETTERCODE_UPDATE_KEY": JSON.stringify(process.env.BETTERCODE_UPDATE_KEY ?? ""),
       },
       build: {
         minify: command === "build",

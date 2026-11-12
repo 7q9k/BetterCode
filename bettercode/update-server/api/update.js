@@ -1,6 +1,12 @@
 // The desktop app's update feed (electron-updater's "generic" provider). The app asks
 // /update/<channel>/desktop/latest.yml (Windows), latest-mac.yml or latest-linux.yml; this answers from the newest
 // published release in Supabase. The files themselves are GitHub release assets.
+//
+// Only official builds get an answer: the release workflow builds the update key (Supabase `app_secrets`) into the
+// app, which sends it as `x-bettercode-key`. This holds only the key's SHA-256; anything else gets a 404.
+import { createHash, timingSafeEqual } from "node:crypto"
+
+const UPDATE_KEY_SHA256 = Buffer.from("828bd37af4f7b08c18c1ea7f3fc461b93fd96bf9d56f47380da3983c6ec55d5f", "hex")
 
 const SUPABASE_URL = "https://anndpsqsihuohtmjisvx.supabase.co"
 
@@ -26,7 +32,7 @@ export async function GET(request) {
   const file = url.searchParams.get("file") ?? ""
   const feed = FEEDS[file]
 
-  if (!feed || !/^[a-z0-9-]{1,32}$/.test(channel)) return new Response("Not found", { status: 404 })
+  if (!feed || !/^[a-z0-9-]{1,32}$/.test(channel) || !official(request)) return new Response("Not found", { status: 404 })
 
   const rows = await releases(channel, [...new Set(feed.map((item) => item.platform))])
   const version = newest(rows.map((row) => row.version))
@@ -42,6 +48,12 @@ export async function GET(request) {
   return new Response(manifest(version, files), {
     headers: { "content-type": "text/yaml; charset=utf-8", "cache-control": "public, max-age=60" },
   })
+}
+
+function official(request) {
+  const digest = createHash("sha256").update(request.headers.get("x-bettercode-key") ?? "").digest()
+
+  return timingSafeEqual(digest, UPDATE_KEY_SHA256)
 }
 
 export async function releases(channel, platforms) {

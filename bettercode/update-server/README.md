@@ -6,7 +6,8 @@ The desktop app's updates and the download page at **bettercode.vercel.app**.
 | --- | --- | --- |
 | `releases` table | Supabase project `bettercode` | One row per desktop file of a release: version, platform, GitHub download URL, SHA-512, size, `published`. Anyone may read published rows; only the publish function writes. |
 | `supabase/publish-release` | Supabase Edge Function | Called by the `bettercode-release` workflow with the `BETTERCODE_PUBLISH_TOKEN` secret; records the release. It only accepts files of this repository's GitHub releases. |
-| `api/update.js` | Vercel | `/update/<channel>/desktop/latest.yml`, `latest-mac.yml`, `latest-linux.yml`: the electron-updater feed for the newest published release. |
+| `app_secrets` table, `supabase/update-key` | Supabase | The update key, readable only by the service role. The release workflow fetches it with the publish token and builds it into the official desktop app. |
+| `api/update.js` | Vercel | `/update/<channel>/desktop/latest.yml`, `latest-mac.yml`, `latest-linux.yml`: the electron-updater feed for the newest published release. It answers only requests that send the update key (`x-bettercode-key`), so only official builds update from here; builds made elsewhere get a 404. |
 | `api/latest.js`, `public/` | Vercel | `/api/latest` as JSON and the download page. |
 
 ## Pushing an update
