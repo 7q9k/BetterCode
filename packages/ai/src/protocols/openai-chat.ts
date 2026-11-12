@@ -32,6 +32,7 @@ import * as Cache from "./utils/cache.js"
 import { resolveParallelToolCalls } from "./open-responses.js"
 import { OpenResponsesOptions } from "./utils/open-responses-options.js"
 import { Lifecycle } from "./utils/lifecycle.js"
+import { flushThinkTags, initialThinkTags, splitThinkTags, type ThinkTagState } from "./utils/think-tags.js"
 import { ToolStream } from "./utils/tool-stream.js"
 import { OpenAIFreeform } from "./openai-freeform.js"
 
@@ -376,6 +377,8 @@ export interface ParserState {
   /** Latest `reasoning_opaque`; interleaved reasoning sends a new one before each tool call. */
   readonly reasoningOpaque?: string
   readonly reasoningEmitted: boolean
+  /** Where the content stream stands with an inline `<think>` block, which local reasoning models send as text. */
+  readonly thinkTags: ThinkTagState
   readonly latestToolIndex?: number
   readonly nextToolIndex: number
   readonly requireFinishReason: boolean
@@ -1193,12 +1196,20 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
       (Boolean(delta?.content) || Boolean(delta?.refusal) || toolDeltas.length > 0)
     )
       lifecycle = Lifecycle.reasoningStart(lifecycle, events, "reasoning-0", deltaMetadata)
-    const reasoningEmitted = state.reasoningEmitted || lifecycle.reasoning.has("reasoning-0")
 
     // Reasoning is one response-wide channel: it stays open alongside text and
     // refusal output so late reasoning deltas and details join the same block,
-    // and `finishEvents` closes it once with the complete metadata.
-    if (delta?.content) lifecycle = Lifecycle.textDelta(lifecycle, events, "text-0", delta.content)
+    // and `finishEvents` closes it once with the complete metadata. A `<think>`
+    // block at the start of the content joins that channel too.
+    const split = delta?.content ? splitThinkTags(state.thinkTags, delta.content) : undefined
+    const thinkTags = split?.state ?? state.thinkTags
+
+    for (const piece of split?.pieces ?? [])
+      lifecycle =
+        piece.kind === "reasoning"
+          ? Lifecycle.reasoningDelta(lifecycle, events, "reasoning-0", piece.text, deltaMetadata)
+          : Lifecycle.textDelta(lifecycle, events, "text-0", piece.text)
+    const reasoningEmitted = state.reasoningEmitted || lifecycle.reasoning.has("reasoning-0")
 
     if (delta?.refusal) lifecycle = Lifecycle.textDelta(lifecycle, events, "text-0", delta.refusal)
 
@@ -1303,6 +1314,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
         reasoningDetailsObserved,
         reasoningOpaque,
         reasoningEmitted,
+        thinkTags,
         latestToolIndex,
         nextToolIndex,
         requireFinishReason: state.requireFinishReason,
@@ -1348,15 +1360,31 @@ export const finishEvents = Effect.fnUntraced(function* (state: ParserState) {
     state.reasoningDetailsObserved ? [...state.reasoningDetails] : undefined,
     state.reasoningOpaque,
   )
+  // A stream that ended inside a `<think>` block, or on what could have been its start, still owes those characters.
+  const flushed = flushThinkTags(state.thinkTags).reduce(
+    (current, piece) =>
+      piece.kind === "reasoning"
+        ? Lifecycle.reasoningDelta(
+            current,
+            events,
+            "reasoning-0",
+            piece.text,
+            reasoningMetadata(state.providerMetadataKey, state.reasoningField),
+          )
+        : Lifecycle.textDelta(current, events, "text-0", piece.text),
+    state.lifecycle,
+  )
   const started =
-    (state.reasoningDetailsObserved || state.reasoningOpaque !== undefined) && !state.reasoningEmitted
+    (state.reasoningDetailsObserved || state.reasoningOpaque !== undefined) &&
+    !state.reasoningEmitted &&
+    !flushed.reasoning.has("reasoning-0")
       ? Lifecycle.reasoningStart(
-          state.lifecycle,
+          flushed,
           events,
           "reasoning-0",
           reasoningMetadata(state.providerMetadataKey, state.reasoningField),
         )
-      : state.lifecycle
+      : flushed
   const ended = Lifecycle.reasoningEnd(started, events, "reasoning-0", metadata)
   const lifecycle = toolCallEvents.length ? Lifecycle.stepStart(ended, events) : ended
   events.push(...toolCallEvents)
@@ -1394,6 +1422,7 @@ export const protocol = Protocol.make({
       reasoningDetails: [],
       reasoningDetailsObserved: false,
       reasoningEmitted: false,
+      thinkTags: initialThinkTags,
       nextToolIndex: 0,
       requireFinishReason: request.model.compatibility?.requireFinishReason ?? true,
     }),

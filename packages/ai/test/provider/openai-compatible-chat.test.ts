@@ -682,6 +682,39 @@ describe("OpenAI-compatible Chat route", () => {
     }),
   )
 
+  it.effect("reads a leading <think> block in the content as reasoning, even with tags split across chunks", () =>
+    Effect.gen(function* () {
+      const response = yield* LLMClient.generate(request).pipe(
+        Effect.provide(
+          fixedResponse(
+            sseEvents(
+              deltaChunk({ role: "assistant", content: "<thi" }),
+              deltaChunk({ content: "nk>\nThe user greets me." }),
+              deltaChunk({ content: " I reply kindly.</th" }),
+              deltaChunk({ content: "ink>\n\nHello! How can I help?" }, "stop"),
+            ),
+          ),
+        ),
+      )
+
+      expect(response.reasoning).toBe("\nThe user greets me. I reply kindly.")
+      expect(response.text).toBe("Hello! How can I help?")
+    }),
+  )
+
+  it.effect("keeps <think> as text when the answer only mentions it", () =>
+    Effect.gen(function* () {
+      const response = yield* LLMClient.generate(request).pipe(
+        Effect.provide(
+          fixedResponse(sseEvents(deltaChunk({ role: "assistant", content: "Use a <think> tag here." }, "stop"))),
+        ),
+      )
+
+      expect(response.text).toBe("Use a <think> tag here.")
+      expect(response.reasoning).toBe("")
+    }),
+  )
+
   it.effect("preserves late text and reasoning for replay without changing the finished tool call", () =>
     Effect.gen(function* () {
       const details = [{ type: "reasoning.encrypted", data: "opaque", id: "late-reasoning" }]
