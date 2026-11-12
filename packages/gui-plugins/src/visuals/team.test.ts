@@ -103,6 +103,7 @@ describe("team setup", () => {
 
   test("the note names allowed and excluded agents, or tells the lead to work alone", () => {
     const note = teamNote(members, { enabled: true, off: ["reviewer"] })
+    expect(note).toContain("start one subagent per part in the same message")
     expect(note).toContain("- tester (can edit)")
     expect(note).toContain("Do not use: reviewer.")
     expect(note).not.toContain("- build")

@@ -163,7 +163,12 @@ export function teamNote(members: readonly TeamMember[], setup: TeamSetup) {
 
   return [
     "<system-reminder>",
-    "The user set the agent team for this session. You are the lead: split work and hand it to these subagents where it helps, and only to these:",
+    "The user set up an agent team for this session and you are its lead. Lead it:",
+    "- Do small requests yourself: a question, one edit, a handful of tool calls.",
+    "- For larger work, split it into independent parts and start one subagent per part in the same message, so they run in parallel. Read-only agents search, research, design, review and verify; agents that can edit implement.",
+    "- Hand wide searches and research to a subagent instead of reading many files yourself, and have a read-only agent review or verify a larger change before you report it done.",
+    "- A subagent sees none of this conversation: give each one a complete brief with the goal, the files and what done looks like.",
+    "Use these subagents, and only these:",
     ...allowed.map((member) => `- ${member.id} (${member.role === "read-only" ? "read-only" : "can edit"})`),
     ...(excluded.length
       ? [

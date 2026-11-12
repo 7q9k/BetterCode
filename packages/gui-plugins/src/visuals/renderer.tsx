@@ -126,11 +126,9 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
 
   const setupKey = () => JSON.stringify(ctx.stores.team.value)
 
-  // The default setup (team on, every agent in) needs no note: the lead's instructions already say so.
-  const DEFAULT_SETUP = JSON.stringify({ enabled: true, off: [] })
-
-  // Whether a session that last received `last` needs the current setup: it changed, and is not the default.
-  const setupDue = (last: string) => last !== setupKey() && !(last === "" && setupKey() === DEFAULT_SETUP)
+  // Whether a session that last received `last` needs the current setup. The default setup is sent too: most model
+  // prompts say nothing about subagents (GPT's even discourage them), so without the note the lead never delegates.
+  const setupDue = (last: string) => last !== setupKey()
 
   const leadModel = (model: { providerID: string; modelID: string; variant?: string } | undefined) =>
     model ? `${model.providerID}/${model.modelID}${model.variant ? ` · ${model.variant}` : ""}` : undefined
@@ -158,8 +156,8 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
 
   ctx.add(Panel, team)
 
-  // Syncs the routed session with the team setup: when the setup differs from what the session last received, and is
-  // not the default a fresh session already assumes, the lead gets the note without the user opening the Team tab.
+  // Syncs the routed session with the team setup: when the setup differs from what the session last received, the lead
+  // gets the note without the user opening the Team tab.
   createKeyed(
     () => {
       const session = ctx.sessions.current()
