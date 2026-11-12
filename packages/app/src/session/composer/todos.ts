@@ -30,6 +30,23 @@ export function sessionTodos(messages: readonly SessionMessageInfo[], boundary?:
   })
 }
 
+/**
+ * Whether the latest `todowrite` call belongs to the current turn: it comes after the last user message. A finished
+ * plan stays on screen until the user sends the next prompt, and a plan from an earlier turn never comes back.
+ */
+export function planInCurrentTurn(messages: readonly SessionMessageInfo[], boundary?: string) {
+  const end = boundary ? messages.findIndex((message) => message.id === boundary) : -1
+  const visible = messages.slice(0, end === -1 ? messages.length : end)
+  const lastUser = visible.findLastIndex((message) => message.type === "user")
+  const lastPlan = visible.findLastIndex(
+    (message) =>
+      message.type === "assistant" &&
+      message.content.some((item) => item.type === "tool" && item.name === "todowrite" && item.state.status === "completed"),
+  )
+
+  return lastPlan > lastUser
+}
+
 /** The todo the agent is on: the one in progress, else the next pending one, else the last finished one. */
 export function currentTodo(todos: readonly Todo[]) {
   return (

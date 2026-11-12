@@ -10,6 +10,7 @@ export const TUNNEL_CHUNK_BYTES = 64 * 1024
 export const MAX_TEXT = 100_000
 const text = Schema.String.check(Schema.isMaxLength(MAX_TEXT))
 const short = Schema.String.check(Schema.isMaxLength(2_048))
+const coordinate = Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 100_000 }))
 const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 const limit = optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 500 }))).annotate({
   description: "Maximum entries, 1–500. Default 100.",
@@ -259,6 +260,29 @@ export const Operations = [
   operation("hover", "Move the pointer over an element in this tab without clicking.", target, Tab),
   operation("drag", "Drag from one element ref to another within this tab.", { ...tab, from: Ref, to: Ref }, Tab),
   operation(
+    "mouse",
+    "Move, click, press, release or drag the mouse pointer at viewport coordinates, for example ones read off a viewport screenshot. Use it when you work from screenshots or the target has no snapshot ref (canvas, maps, games, custom widgets); prefer click/hover with a ref otherwise. Pass the screenshot's image width as imageWidth so its pixel coordinates map onto the page.",
+    {
+      ...tab,
+      action: Schema.Literals(["move", "click", "down", "up", "drag"]).annotate({
+        description:
+          "move: only move the pointer (hover). click: move and click. down/up: press or release a button at the point. drag: press at x,y, move to toX,toY and release.",
+      }),
+      x: coordinate.annotate({ description: "Horizontal position from the viewport's left edge." }),
+      y: coordinate.annotate({ description: "Vertical position from the viewport's top edge." }),
+      toX: optional(coordinate).annotate({ description: "drag only: horizontal end position." }),
+      toY: optional(coordinate).annotate({ description: "drag only: vertical end position." }),
+      imageWidth: optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 20_000 }))).annotate({
+        description:
+          "Width in pixels of the viewport screenshot the coordinates come from. Omit when the coordinates are CSS pixels.",
+      }),
+      button: optional(Schema.Literals(["left", "right", "middle"])),
+      count: optional(Schema.Literals([1, 2])),
+      modifiers: optional(Schema.Array(Schema.Literals(["Alt", "Control", "Meta", "Shift"]))),
+    },
+    Tab,
+  ),
+  operation(
     "fill",
     "Replace editable element text. Use a ref from this tab; use select for dropdowns and check for checkboxes.",
     { ...target, text: Schema.String.check(Schema.isMaxLength(10_000)) },
@@ -324,7 +348,14 @@ export const Operations = [
       quality: optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
       maxWidth: optional(Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 4_000 }))),
     },
-    saved,
+    Schema.Struct({
+      ...page,
+      ...files,
+      width: optional(count).annotate({
+        description: "Image width in pixels. Pass it to browser.mouse as imageWidth with points from a viewport shot.",
+      }),
+      height: optional(count).annotate({ description: "Image height in pixels." }),
+    }),
   ),
   operation(
     "dialog",

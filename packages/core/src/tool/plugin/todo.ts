@@ -49,7 +49,11 @@ export const Plugin = {
     // Internal plugins are not re-run on config changes, so reload the tool transform instead.
     const loaded = yield* ConfigEntryObserver.observe(config, ctx.event, ctx.tool.reload())
     const flags = yield* Flag.Service
-    const enabled = () => flags.resolve(loaded.entries).todo.enabled
+    // BetterCode ships the plan list: it is on unless config or OPENCODE_FLAGS turns it off explicitly.
+    const enabled = () => {
+      const flag = flags.resolve(loaded.entries).todo
+      return flag.source === "default" || flag.enabled
+    }
 
     yield* ctx.tool
       .transform((editor) => {

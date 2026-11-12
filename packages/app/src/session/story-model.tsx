@@ -8,7 +8,7 @@ import {
 } from "@/session/composer/session-composer-region"
 import { SessionActivityChips, type SessionActivityItem } from "@/session/composer/activity-chips"
 import { SessionComposerLane } from "@/session/composer/composer-lane"
-import { SessionTodoPill } from "@/session/composer/todo-pill"
+import { SessionPlanList } from "@/session/composer/plan-list"
 import type { Todo } from "@/session/composer/todos"
 import { SettingsProvider } from "@/settings/model"
 import { SubagentBar } from "@/session/composer/subagent-bar"
@@ -331,10 +331,10 @@ function SessionSurfaceState(props: SessionPreviewProps & { onReset: () => void 
                             // The story's only editor is its composer.
                             onEmpty={() => document.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()}
                           />
-                          <Show when={props.todos} keyed>
-                            {(todos) => <SessionTodoPill todos={todos.items} defaultOpen={todos.open} />}
-                          </Show>
                         </SessionComposerLane>
+                        <Show when={props.todos} keyed>
+                          {(todos) => <SessionPlanList todos={todos.items} />}
+                        </Show>
                       </SettingsProvider>
                     }
                     composer={<Composer model={prompt.controller} borderUnderlay />}

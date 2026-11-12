@@ -9,6 +9,10 @@ import { resolveThemeColors } from "./resolve"
 import { DEFAULT_THEMES, type Theme, type ThemeV1Json } from "./v1"
 import opencode from "./assets/v2/opencode.json" with { type: "json" }
 import opencode2 from "./assets/v2/opencode2.json" with { type: "json" }
+import bettercode from "./assets/v2/bettercode.json" with { type: "json" }
+
+/** The theme a fresh install uses and every broken theme falls back to: BetterCode's monochrome look. */
+export const DEFAULT_THEME = "bettercode"
 
 export { DEFAULT_THEMES, type Theme, type ThemeV1Json } from "./v1"
 
@@ -30,6 +34,13 @@ export function getOpenCodeTheme() {
   return document
 }
 
+let bettercodeTheme: ReturnType<typeof getOpenCodeTheme> | undefined
+
+export function getBetterCodeTheme() {
+  bettercodeTheme ??= parseThemeDocument(bettercode, DEFAULT_THEME) as NonNullable<typeof opencodeTheme>
+  return bettercodeTheme
+}
+
 let opencode2Theme: ThemeDocument | undefined
 
 // Temporary theme for the "new-designs" experiment. It is not part of allThemes(), so only the
@@ -44,11 +55,12 @@ function listThemes(): Record<string, ThemeDocumentSource> {
   const themes: Record<string, ThemeDocumentSource> = {
     ...DEFAULT_THEMES,
     opencode: getOpenCodeTheme(),
+    bettercode: getBetterCodeTheme(),
     ...customThemes,
   }
   return {
     ...themes,
-    system: systemTheme ?? themes.system ?? themes.opencode,
+    system: systemTheme ?? themes.system ?? themes[DEFAULT_THEME],
   }
 }
 

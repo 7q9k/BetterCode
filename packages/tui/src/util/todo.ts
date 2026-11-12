@@ -41,3 +41,21 @@ export function sessionTodos(messages: ReadonlyArray<SessionMessageInfo>, bounda
     )
   return parseTodos(tool?.state.input.todos)
 }
+
+/**
+ * Whether the latest `todowrite` call belongs to the current turn: it comes after the last user message. A finished
+ * plan stays on screen until the user's next prompt, and a plan from an earlier turn never comes back.
+ */
+export function planInCurrentTurn(messages: ReadonlyArray<SessionMessageInfo>, boundary?: string) {
+  const boundaryIndex = boundary ? messages.findIndex((message) => message.id === boundary) : -1
+  const visible = messages.slice(0, boundaryIndex === -1 ? messages.length : boundaryIndex)
+  const lastUser = visible.findLastIndex((message) => message.type === "user")
+  const lastPlan = visible.findLastIndex(
+    (message) =>
+      message.type === "assistant" &&
+      message.content.some(
+        (item) => item.type === "tool" && item.name === "todowrite" && item.state.status === "completed",
+      ),
+  )
+  return lastPlan > lastUser
+}

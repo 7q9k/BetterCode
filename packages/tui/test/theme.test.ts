@@ -2,7 +2,16 @@ import { expect, test } from "bun:test"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import type { TerminalColors } from "@opentui/core"
-import { allThemes, hasTheme, getOpenCodeTheme, parseTheme, resolveTheme } from "../src/theme"
+import { resolveThemeDocument } from "@opencode/theme/tui"
+import {
+  allThemes,
+  DEFAULT_THEME,
+  getBetterCodeTheme,
+  hasTheme,
+  getOpenCodeTheme,
+  parseTheme,
+  resolveTheme,
+} from "../src/theme"
 import { discoverThemes } from "../src/theme/discovery"
 import { configDirectories } from "../src/util/config-directories"
 import { terminalMode } from "../src/theme/system"
@@ -20,6 +29,17 @@ test("rejects unrecognized theme structures", () => {
 test("registers opencode as a native V2 theme", () => {
   expect(allThemes().opencode).toBe(getOpenCodeTheme())
   expect(parseTheme(getOpenCodeTheme()).base).toBeDefined()
+})
+
+test("ships bettercode as the default theme and the system fallback in both modes", () => {
+  expect(DEFAULT_THEME).toBe("bettercode")
+  expect(allThemes().bettercode).toBe(getBetterCodeTheme())
+  expect(allThemes().system).toBe(getBetterCodeTheme())
+  const dark = resolveThemeDocument(parseTheme(getBetterCodeTheme()), "dark")
+  const light = resolveThemeDocument(parseTheme(getBetterCodeTheme()), "light")
+  // Monochrome: the focused action is white on dark and black on light.
+  expect(dark.background.action.primary.focused).not.toEqual(light.background.action.primary.focused)
+  expect([dark.text.base, light.text.base].every(Boolean)).toBe(true)
 })
 
 test("keeps the experimental opencode2 theme out of the global theme list", () => {

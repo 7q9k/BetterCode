@@ -1,7 +1,9 @@
-Create and update a todo list for the current session. The user sees it as your working plan.
+Create and update the plan list for the current session. The user sees it pinned under the conversation and follows your progress on it while you work.
 
-Use it proactively when a task has 3 or more distinct steps, or when the user gives several tasks or asks for a todo list. Skip it for a single simple task or a purely conversational request. When in doubt, use it.
+Use it for every request with several steps (implement and test, investigate then fix, a list of tasks from the user). Write the whole plan before your first other tool call: short imperative steps of a few words, in the order you will do them. Skip it for a single small change, a question or conversation.
 
 - Send the full list on every call; it replaces the previous one.
-- Mark items `in_progress` when you start them and `completed` as soon as they're actually done.
+- Keep exactly one step `in_progress` while you work. When a step is actually done, mark it `completed` and the next one `in_progress` in the same call.
+- When the plan changes (new instruction from the user, a step turns out unnecessary), send the new whole list; mark dropped steps `cancelled` instead of deleting them.
+- When everything is done, mark the last step `completed` so no step stays `in_progress`.
 - Only call it when the list changes.

@@ -11,6 +11,9 @@ const value: Platform = {
 
 const Context = createContext<Platform>(value)
 
+// The dictation button reads the context directly, so it works outside a provider.
+export const PlatformContext = Context
+
 export function PlatformProvider(props: ParentProps<{ value: Platform }>) {
   return createComponent(Context.Provider, {
     value: props.value,

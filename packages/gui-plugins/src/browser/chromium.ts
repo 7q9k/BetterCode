@@ -75,6 +75,7 @@ const pointerOperations: readonly Browser.Method[] = [
   "click",
   "hover",
   "drag",
+  "mouse",
   "fill",
   "fill_form",
   "select",
@@ -883,6 +884,69 @@ export function createBrowserPage(
         break
       }
 
+      case "mouse": {
+        const viewport = (await cdp.send("Page.getLayoutMetrics")).cssVisualViewport
+        // Screenshot pixels include the zoom, the display scale and any maxWidth downscale; the width maps them back.
+        const scale = action.imageWidth ? viewport.clientWidth / action.imageWidth : 1
+        const at = (x: number, y: number) => {
+          const point = { x: x * scale, y: y * scale }
+
+          if (point.x > viewport.clientWidth || point.y > viewport.clientHeight)
+            throw new Error(
+              `browser.mouse point (${Math.round(point.x)}, ${Math.round(point.y)}) is outside the ${Math.round(viewport.clientWidth)}x${Math.round(viewport.clientHeight)} viewport. Use coordinates from a viewport screenshot and pass its width as imageWidth.`,
+            )
+
+          return point
+        }
+        const from = at(action.x, action.y)
+        const button = action.button ?? "left"
+        const modifiers = (action.modifiers ?? []).reduce(
+          (mask, key) => mask | ({ Alt: 1, Control: 2, Meta: 4, Shift: 8 }[key] ?? 0),
+          0,
+        )
+        const buttons = { left: 1, right: 2, middle: 4 }[button]
+        const press = (type: "mousePressed" | "mouseReleased", point: { x: number; y: number }, clickCount = 1) =>
+          cdp.send("Input.dispatchMouseEvent", { type, ...point, button, buttons, clickCount, modifiers })
+
+        if (action.action === "drag" && (action.toX === undefined || action.toY === undefined))
+          throw new Error("browser.mouse drag needs toX and toY for the end of the drag.")
+
+        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...from, modifiers })
+
+        if (action.action === "down") await press("mousePressed", from)
+
+        if (action.action === "up") await press("mouseReleased", from)
+
+        if (action.action === "click")
+          for (let clickCount = 1; clickCount <= (action.count ?? 1); clickCount++) {
+            await press("mousePressed", from, clickCount)
+            await press("mouseReleased", from, clickCount)
+          }
+
+        if (action.action === "drag") {
+          const to = at(action.toX ?? 0, action.toY ?? 0)
+          await press("mousePressed", from)
+
+          try {
+            for (let i = 1; i <= 10; i++) {
+              abortError(signal)
+              await cdp.send("Input.dispatchMouseEvent", {
+                type: "mouseMoved",
+                x: from.x + ((to.x - from.x) * i) / 10,
+                y: from.y + ((to.y - from.y) * i) / 10,
+                button,
+                buttons,
+                modifiers,
+              })
+            }
+          } finally {
+            await press("mouseReleased", to)
+          }
+        }
+
+        break
+      }
+
       case "fill":
         await fill(target(action.ref), action.text, signal)
         break
@@ -1012,7 +1076,14 @@ export function createBrowserPage(
           ...sourceURLs(),
         ])
 
-        return result({ tab: state() }, [await transfer(id)])
+        return result(
+          {
+            tab: state(),
+            width: Math.round(bounds.width * pixelRatio * scale),
+            height: Math.round(bounds.height * pixelRatio * scale),
+          },
+          [await transfer(id)],
+        )
       }
 
       case "dialog": {

@@ -112,7 +112,7 @@ function TodoList(props: { todos: readonly Todo[] }) {
   )
 }
 
-function TodoGlyph(props: { status: TodoStatus }) {
+export function TodoGlyph(props: { status: TodoStatus }) {
   return (
     <svg
       data-slot="session-todo-glyph"

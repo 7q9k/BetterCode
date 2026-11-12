@@ -28,6 +28,25 @@ test("browser input bounds and optional fields survive the wire", () => {
   expect(() => decode({ type: "network.list", tabID, resourceType: "imaginary" })).toThrow()
 })
 
+test("mouse takes coordinates instead of refs", () => {
+  const decode = Schema.decodeUnknownSync(Browser.Action)
+  expect(decode({ type: "mouse", tabID, action: "click", x: 120.5, y: 48, imageWidth: 1600 })).toEqual({
+    type: "mouse",
+    tabID,
+    action: "click",
+    x: 120.5,
+    y: 48,
+    imageWidth: 1600,
+  })
+  expect(decode({ type: "mouse", tabID, action: "drag", x: 0, y: 0, toX: 300, toY: 200 })).toMatchObject({
+    toX: 300,
+    toY: 200,
+  })
+  expect(() => decode({ type: "mouse", tabID, action: "click", x: -1, y: 0 })).toThrow()
+  expect(() => decode({ type: "mouse", tabID, action: "wiggle", x: 1, y: 1 })).toThrow()
+  expect(() => decode({ type: "mouse", tabID, action: "move", ref: "e1" })).toThrow()
+})
+
 test("browser files are bounded bytes, not remote filesystem paths", () => {
   const id = `file_${crypto.randomUUID()}`
   const decode = Schema.decodeUnknownSync(Browser.File)

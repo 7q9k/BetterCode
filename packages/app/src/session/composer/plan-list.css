@@ -1,0 +1,72 @@
+[data-component="session-plan-list"] {
+  [data-slot="session-plan-header"]:hover {
+    background: var(--v2-background-bg-layer-01);
+  }
+
+  [data-slot="session-plan-header"]:focus-visible {
+    outline-offset: -2px;
+  }
+
+  [data-slot="session-plan-bar"] {
+    position: relative;
+    width: 56px;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--v2-background-bg-layer-03);
+
+    > span {
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: 0;
+      border-radius: inherit;
+      background: var(--v2-state-fg-success);
+      transition: width 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+  }
+
+  [data-slot="session-plan-chevron"] {
+    transform: rotate(-90deg);
+    transition: transform 160ms ease;
+
+    &[data-open] {
+      transform: none;
+    }
+  }
+
+  [data-slot="session-plan-row"] {
+    [data-slot="session-plan-text"] {
+      color: var(--v2-text-text-muted);
+    }
+
+    &[data-status="in_progress"] {
+      background: var(--v2-background-bg-layer-01);
+
+      [data-slot="session-plan-text"] {
+        color: var(--v2-text-text-base);
+        font-weight: 500;
+      }
+
+      [data-slot="session-todo-glyph"] {
+        animation: session-plan-pulse 1.6s ease-in-out infinite;
+      }
+    }
+
+    &:is([data-status="completed"], [data-status="cancelled"]) [data-slot="session-plan-text"] {
+      color: var(--v2-text-text-faint);
+      text-decoration: line-through;
+    }
+  }
+}
+
+@keyframes session-plan-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="session-plan-list"] [data-slot="session-todo-glyph"] {
+    animation: none;
+  }
+}

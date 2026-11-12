@@ -40,8 +40,8 @@ import { SessionQueuePanel } from "./queue-panel"
 import { SessionGoLimitTray } from "./go-limit-tray"
 import { SessionActivityChips, type SessionActivityItem } from "./activity-chips"
 import { SessionComposerLane, useComposerLaneAlignment } from "./composer-lane"
-import { SessionTodoPill } from "./todo-pill"
-import { sessionTodos, todoFinished } from "./todos"
+import { SessionPlanList } from "./plan-list"
+import { planInCurrentTurn, sessionTodos, todoFinished } from "./todos"
 import { useOpenSessionRoute } from "../session-identity-header"
 import { resolveSessionComposerSelection } from "./selection"
 import { composerModelLabelKey, composerModelLabels, composerProviderName } from "@/composer/model-label"
@@ -467,18 +467,20 @@ export function ActiveSessionComposerRegion(props: {
 
   const alignment = useComposerLaneAlignment()
   const todos = createMemo(() => sessionTodos(props.session.history.messages(), props.session.data.revertMessageID()))
-  // Like the old dock: the plan shows while the turn runs and still has work left, so stale todos never linger.
-
+  // The plan shows while the turn still has work left, and once finished until the user's next prompt, so a plan from
+  // an earlier turn (or an old V1 `todowrite` call) never comes back.
   const todosVisible = () =>
-    todoEnabled() && props.session.data.working() && todos().length > 0 && !todos().every(todoFinished)
-  // Matches the server: the highest-priority document that sets `experimental` decides. Migrated V1 sessions keep their
-  // old `todowrite` calls, so without this check their last plan would come back.
-
+    todoEnabled() &&
+    todos().length > 0 &&
+    ((props.session.data.working() && !todos().every(todoFinished)) ||
+      planInCurrentTurn(props.session.history.messages(), props.session.data.revertMessageID()))
+  // Matches the server: BetterCode turns `todowrite` on unless the highest-priority document that sets `experimental`
+  // turns it off.
   const todoEnabled = () =>
     data.location.config
       .list({ directory: location().directory })
       ?.flatMap((entry) => (entry.type === "document" && entry.info.experimental ? [entry.info.experimental] : []))
-      .at(-1)?.todo === true
+      .at(-1)?.todo !== false
 
   const stop = (item: SessionActivityItem) => {
     const request =
@@ -586,11 +588,11 @@ export function ActiveSessionComposerRegion(props: {
               onStop={stop}
               onEmpty={props.model.region.focusPrompt}
             />
-            <Show when={todosVisible()}>
-              <SessionTodoPill todos={todos()} />
-            </Show>
             <SessionPluginPills session={props.view()} screen={props.screen} alignment={alignment} />
           </SessionComposerLane>
+          <Show when={todosVisible()}>
+            <SessionPlanList todos={todos()} />
+          </Show>
           <SessionQueuePanel queue={props.model.queue} hidden={props.model.region.state.blocked()} />
           <SessionGoLimitTray
             sessionID={props.session.identity.params.id}

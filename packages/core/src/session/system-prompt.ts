@@ -24,5 +24,12 @@ export function render(prompt: string, tools: string[]) {
       "- Use the edit tool for targeted changes to existing text files. It replaces the exact text in `oldString` with `newString`, and the values must differ. By default, `oldString` must occur exactly once. If it occurs multiple times, include more surrounding context to make it unique or set `replaceAll` to true to replace every occurrence.",
     )
   }
+  if (tools.includes("todowrite")) {
+    instructions.push(
+      "- The user follows your progress on the plan list, which the todowrite tool keeps. For any request with several steps, call todowrite with the whole plan before your first other tool call: short imperative steps, the first one `in_progress`, the rest `pending`.",
+      "- Keep exactly one step `in_progress`. As soon as a step is done, mark it `completed` and the next one `in_progress` in the same call. When the plan changes, for example after a new instruction from the user, send the new whole list.",
+      "- Skip the plan for a single small change, a question or conversation.",
+    )
+  }
   return prompt.replace("${OPENCODE_TOOL_GUIDANCE}", instructions.join("\n"))
 }
