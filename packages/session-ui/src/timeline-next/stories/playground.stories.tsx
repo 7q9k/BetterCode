@@ -226,6 +226,7 @@ export const Playground = {
                 class="px-4 md:px-6"
                 spacing={laneSpacing()}
                 label={busy() && status() ? statusLabels[status()!] : undefined}
+                wave={status() === "working" ? "working" : undefined}
                 collapsed={busy() && !status()}
               />
             </Show>

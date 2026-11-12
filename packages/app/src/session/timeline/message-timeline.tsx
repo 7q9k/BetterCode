@@ -539,6 +539,7 @@ function MessageTimelineView(
           class={turnPadding()}
           spacing={laneSpacing()}
           label={live() && working() ? language.t(`session.timeline.status.${nextStatus() ?? "working"}`) : undefined}
+          wave={(nextStatus() ?? "working") === "working" ? (liveThought() ? "thinking" : "working") : undefined}
           collapsed={live() && liveThought() && !working() && !backgroundHintPresence.present()}
         >
           {hint(live)}

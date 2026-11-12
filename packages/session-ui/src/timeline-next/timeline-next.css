@@ -587,6 +587,20 @@
     overflow: hidden;
   }
 
+  [data-component="session-working"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* The audio wave: rounded bars, muted like the label and brighter where a bar is taller. */
+  [data-component="activity-wave"] {
+    flex: none;
+    width: 104px;
+    height: 16px;
+    color: var(--v2-text-text-muted);
+  }
+
   [data-slot="timeline-status-label"] {
     font-family: var(--v2-font-family-sans);
     font-size: 13px;

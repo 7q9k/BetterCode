@@ -41,7 +41,8 @@ import { type AutocompleteOption, type AutocompleteRef, Autocomplete } from "./a
 import { useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Locale } from "../../util/locale"
 import { errorMessage } from "../../util/error"
-import { createColors, createFrames } from "../../ui/spinner"
+import { waveBar, waveLevels } from "@opencode/util/activity-wave"
+import { sceneActivity } from "../ascii-scene"
 import { useDialog } from "../../ui/dialog"
 import { DialogIntegration } from "../dialog-integration"
 import { useConnected } from "../use-connected"
@@ -99,6 +100,11 @@ export type PromptRef = {
 }
 
 const DRAFT_RETENTION_MIN_CHARS = 20
+
+// The working wave: bars wide, and frames per loop at the spinner's 40ms interval (a four-second loop).
+const WAVE_WIDTH = 18
+
+const WAVE_FRAMES = 100
 const revealedPromptMetadata = new WeakSet<object>()
 
 function randomIndex(count: number) {
@@ -1654,23 +1660,24 @@ export function Prompt(props: PromptProps) {
     onMove: () => void move.open(),
   })
 
+  // Thinking breathes slowly; writing and running tools make the wave livelier.
+  const waveMode = createMemo(() =>
+    sceneActivity(status() === "running", data.session.message.list(props.sessionID ?? "")) === "thinking"
+      ? "thinking"
+      : "working",
+  )
+
+  // The working indicator: an audio wave of bar glyphs (shared with the desktop app), brighter where a bar is taller.
+  // One loop of frames repeats seamlessly; the spinner keeps its place while the frames stay the same.
   const spinnerDef = createMemo(() => {
     const color = promptDisplay().agentColor ?? theme.border.base
+    const levels = Array.from({ length: WAVE_FRAMES }, (_, frame) =>
+      waveLevels(WAVE_WIDTH, (2 * Math.PI * frame) / WAVE_FRAMES, waveMode()),
+    )
+
     return {
-      frames: createFrames({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
-      }),
-      color: createColors({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
-      }),
+      frames: levels.map((row) => row.map(waveBar).join("")),
+      color: (frame: number, char: number) => tint(theme.text.muted, color, levels[frame]?.[char] ?? 0),
     }
   })
   const maxHeight = createMemo(() => Math.max(6, Math.floor(dimensions().height / 3)))

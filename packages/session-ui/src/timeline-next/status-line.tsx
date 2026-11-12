@@ -1,4 +1,6 @@
 import { TextShimmer } from "@opencode/ui/text-shimmer"
+import type { WaveMode } from "@opencode/util/activity-wave"
+import { ActivityWave } from "./activity-wave"
 import { Show, type JSX } from "solid-js"
 import type { TimelineGap } from "./spacing"
 
@@ -9,6 +11,8 @@ import type { TimelineGap } from "./spacing"
  */
 export function StatusLane(props: {
   label?: string
+  /** The audio wave beside the label while the model works; omitted while it waits on the user or a shell. */
+  wave?: WaveMode
   collapsed?: boolean
   /** The space above the next row of the turn, so the line sits where that row will. */
   spacing?: TimelineGap
@@ -26,6 +30,7 @@ export function StatusLane(props: {
       <Show when={props.label}>
         {(label) => (
           <div data-component="session-working" role="status" aria-label={label()}>
+            <Show when={props.wave}>{(mode) => <ActivityWave mode={mode()} />}</Show>
             <span data-slot="timeline-status-label">
               <TextShimmer text={label()} active />
             </span>
