@@ -4,6 +4,7 @@ import type { Protocol } from "devtools-protocol"
 import { Schema } from "effect"
 import type { Embeds } from "@opencode/plugin/gui/main"
 import { createCdp, abortError, waitFor } from "./cdp"
+import { cursorCall, cursorHidden, glidePath, type Point } from "./cursor"
 import { createBrowserFiles } from "./files"
 import { createDiagnostics } from "./diagnostics"
 import { loadIcon } from "./icon"
@@ -318,6 +319,8 @@ export function createBrowserPage(
   const parents = new Map<string, string>()
   const contexts = new Map<string, { id: number; sessionID?: string }>()
   let dialogGate = createDialogGateState()
+  // Where the agent's pointer is in this tab, in viewport CSS pixels; the next mouse action glides from here.
+  let pointer: Point | undefined
   // Running commands by run id: the controller that stops their remaining steps, and the wait an interruption ends.
   const runs = new Map<number, { controller: AbortController; interrupted: Interrupted }>()
   let revision = 0
@@ -828,10 +831,10 @@ export function createBrowserPage(
       }
 
       case "click":
-        await click(target(action.ref), action.button ?? "left", action.count ?? 1, action.modifiers)
+        await click(target(action.ref), action.button ?? "left", action.count ?? 1, action.modifiers, signal)
         break
       case "hover":
-        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...(await point(target(action.ref))) })
+        await glide(await point(target(action.ref)), signal)
         break
       case "drag": {
         const source = target(action.from)
@@ -848,7 +851,7 @@ export function createBrowserPage(
         })
 
         await cdp.send("Input.setInterceptDrags", { enabled: true })
-        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...from })
+        await glide(from, signal)
         await cdp.send("Input.dispatchMouseEvent", {
           type: "mousePressed",
           ...from,
@@ -856,18 +859,10 @@ export function createBrowserPage(
           buttons: 1,
           clickCount: 1,
         })
+        await showCursor(cursorCall("down", true))
 
         try {
-          for (let i = 1; i <= 10; i++) {
-            abortError(signal)
-            await cdp.send("Input.dispatchMouseEvent", {
-              type: "mouseMoved",
-              x: from.x + ((to.x - from.x) * i) / 10,
-              y: from.y + ((to.y - from.y) * i) / 10,
-              button: "left",
-              buttons: 1,
-            })
-          }
+          await glide(to, signal, { button: "left", buttons: 1 })
 
           if (html5) await waitFor(() => data !== undefined, signal, 2_000)
 
@@ -879,6 +874,7 @@ export function createBrowserPage(
           off()
           await cdp.send("Input.setInterceptDrags", { enabled: false })
           await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...to, button: "left", clickCount: 1 })
+          await showCursor(cursorCall("down", false))
         }
 
         break
@@ -888,6 +884,7 @@ export function createBrowserPage(
         const viewport = (await cdp.send("Page.getLayoutMetrics")).cssVisualViewport
         // Screenshot pixels include the zoom, the display scale and any maxWidth downscale; the width maps them back.
         const scale = action.imageWidth ? viewport.clientWidth / action.imageWidth : 1
+
         const at = (x: number, y: number) => {
           const point = { x: x * scale, y: y * scale }
 
@@ -898,61 +895,69 @@ export function createBrowserPage(
 
           return point
         }
+
         const from = at(action.x, action.y)
         const button = action.button ?? "left"
+
         const modifiers = (action.modifiers ?? []).reduce(
           (mask, key) => mask | ({ Alt: 1, Control: 2, Meta: 4, Shift: 8 }[key] ?? 0),
           0,
         )
+
         const buttons = { left: 1, right: 2, middle: 4 }[button]
+
         const press = (type: "mousePressed" | "mouseReleased", point: { x: number; y: number }, clickCount = 1) =>
           cdp.send("Input.dispatchMouseEvent", { type, ...point, button, buttons, clickCount, modifiers })
 
         if (action.action === "drag" && (action.toX === undefined || action.toY === undefined))
           throw new Error("browser.mouse drag needs toX and toY for the end of the drag.")
 
-        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...from, modifiers })
+        await glide(from, signal, { modifiers })
 
-        if (action.action === "down") await press("mousePressed", from)
+        if (action.action === "down") {
+          await press("mousePressed", from)
+          await showCursor(cursorCall("down", true))
+        }
 
-        if (action.action === "up") await press("mouseReleased", from)
+        if (action.action === "up") {
+          await press("mouseReleased", from)
+          await showCursor(cursorCall("down", false))
+        }
 
-        if (action.action === "click")
+        if (action.action === "click") {
+          await showCursor(cursorCall("click", from.x, from.y))
+
           for (let clickCount = 1; clickCount <= (action.count ?? 1); clickCount++) {
             await press("mousePressed", from, clickCount)
             await press("mouseReleased", from, clickCount)
           }
+        }
 
         if (action.action === "drag") {
           const to = at(action.toX ?? 0, action.toY ?? 0)
           await press("mousePressed", from)
+          await showCursor(cursorCall("down", true))
 
           try {
-            for (let i = 1; i <= 10; i++) {
-              abortError(signal)
-              await cdp.send("Input.dispatchMouseEvent", {
-                type: "mouseMoved",
-                x: from.x + ((to.x - from.x) * i) / 10,
-                y: from.y + ((to.y - from.y) * i) / 10,
-                button,
-                buttons,
-                modifiers,
-              })
-            }
+            await glide(to, signal, { modifiers, button, buttons })
           } finally {
             await press("mouseReleased", to)
+            await showCursor(cursorCall("down", false))
           }
         }
 
         break
       }
 
+      // Form tools set values directly, but the pointer still travels to each field so the user can follow along.
       case "fill":
+        await glide(await point(target(action.ref)), signal)
         await fill(target(action.ref), action.text, signal)
         break
       case "fill_form":
         for (const field of action.fields) {
           abortError(signal)
+          await glide(await point(target(field.ref)), signal)
 
           if (field.type === "text") await fill(target(field.ref), field.value, signal)
 
@@ -963,20 +968,24 @@ export function createBrowserPage(
 
         break
       case "select":
+        await glide(await point(target(action.ref)), signal)
         await select(target(action.ref), action.values)
         break
       case "check":
+        await glide(await point(target(action.ref)), signal)
         await check(target(action.ref), action.checked)
         break
       case "press":
         await key(action.key)
         break
       case "scroll": {
+        // The wheel turns where the pointer is, so the element under it scrolls, as it does for a person.
         const bounds = view.getBounds()
+        const at = pointer ?? { x: bounds.width / 2, y: bounds.height / 2 }
         await cdp.send("Input.dispatchMouseEvent", {
           type: "mouseWheel",
-          x: bounds.width / 2,
-          y: bounds.height / 2,
+          x: at.x,
+          y: at.y,
           deltaX: action.deltaX ?? 0,
           deltaY: action.deltaY,
         })
@@ -1064,12 +1073,17 @@ export function createBrowserPage(
           throw new Error("Screenshot exceeds 16 megapixels; capture an element or use a smaller maxWidth.")
         const format = action.format ?? "jpeg"
 
-        const capture = await cdp.send("Page.captureScreenshot", {
-          format,
-          quality: format === "png" ? undefined : (action.quality ?? 80),
-          captureBeyondViewport: true,
-          clip: { ...bounds, scale },
-        })
+        // The drawn cursor would hide what lies under it, so the image leaves it out unless the caller asks for it.
+        if (!action.cursor) await showCursor(cursorHidden(true))
+
+        const capture = await cdp
+          .send("Page.captureScreenshot", {
+            format,
+            quality: format === "png" ? undefined : (action.quality ?? 80),
+            captureBeyondViewport: true,
+            clip: { ...bounds, scale },
+          })
+          .finally(() => (action.cursor ? undefined : showCursor(cursorHidden(false))))
 
         const id = await files.save(`screenshot.${format}`, `image/${format}`, Buffer.from(capture.data, "base64"), [
           ...captureSources,
@@ -1406,10 +1420,55 @@ export function createBrowserPage(
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
   }
 
-  async function click(element: Element, button = "left", count = 1, modifiers: readonly string[] = []) {
+  /**
+   * Moves the agent's pointer to `to` the way a hand would: real pointer events along an eased path, about one per
+   * frame, while the cursor drawn into the page glides along the same path. Hover effects, menus and drag targets react
+   * as they do for a person. The first move in a tab starts from the middle of the viewport.
+   */
+  async function glide(
+    to: Point,
+    signal: AbortSignal | undefined,
+    input: { modifiers?: number; button?: string; buttons?: number } = {},
+  ) {
+    const from = pointer ?? (await viewportCenter())
+    const path = glidePath(from, to)
+    // A navigation drops the page's cursor; placing it at the start first keeps it from flying in from the corner.
+    await showCursor(`${cursorCall("jump", from.x, from.y)};${cursorCall("move", to.x, to.y, path.duration)}`)
+    const delay = path.duration / path.points.length
+
+    for (const step of path.points) {
+      if (signal) abortError(signal)
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...step, ...input })
+      pointer = step
+
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+
+    pointer = to
+  }
+
+  async function viewportCenter() {
+    const viewport = (await cdp.send("Page.getLayoutMetrics")).cssVisualViewport
+
+    return { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 }
+  }
+
+  // The drawn cursor is decoration: a page that blocks or breaks it must never fail the action itself.
+  async function showCursor(expression: string) {
+    await cdp.send("Runtime.evaluate", { expression, returnByValue: true }).catch(() => undefined)
+  }
+
+  async function click(
+    element: Element,
+    button = "left",
+    count = 1,
+    modifiers: readonly string[] = [],
+    signal?: AbortSignal,
+  ) {
     const position = await point(element)
     const flags = modifiers.reduce((mask, key) => mask | ({ Alt: 1, Control: 2, Meta: 4, Shift: 8 }[key] ?? 0), 0)
-    await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...position, modifiers: flags })
+    await glide(position, signal, { modifiers: flags })
+    await showCursor(cursorCall("click", position.x, position.y))
 
     for (let clickCount = 1; clickCount <= count; clickCount++) {
       await cdp.send("Input.dispatchMouseEvent", {

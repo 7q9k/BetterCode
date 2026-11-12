@@ -347,6 +347,10 @@ export const Operations = [
       format: optional(Schema.Literals(["png", "jpeg", "webp"])),
       quality: optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
       maxWidth: optional(Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 4_000 }))),
+      cursor: optional(Schema.Boolean).annotate({
+        description:
+          "Default false: the agent's visible pointer is left out of the image. Pass true to see where the pointer is.",
+      }),
     },
     Schema.Struct({
       ...page,
