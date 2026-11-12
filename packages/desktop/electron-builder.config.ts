@@ -166,9 +166,12 @@ const getBase = (appId: string): Configuration => {
       target: ["dmg", "zip"],
     },
     protocols: {
-      name: "OpenCode",
+      name: "BetterCode",
       schemes: ["opencode"],
     },
+    // Windows shows the copyright and the publisher (package.json's author) in the file properties and in Settings ›
+    // Apps, where the entry is named BetterCode alone, without its version.
+    copyright: "Copyright © 2026 BetterCode",
     win: {
       icon: `resources/icons/icon.ico`,
       target: ["nsis"],
@@ -178,6 +181,7 @@ const getBase = (appId: string): Configuration => {
       include: path.join(packageDir, "resources", "windows", "installer.nsh"),
       oneClick: true,
       perMachine: false,
+      uninstallDisplayName: "${productName}",
       // The setup and uninstall programs show only the b, without the app tile.
       installerIcon: `resources/icons/installer.ico`,
       uninstallerIcon: `resources/icons/installer.ico`,
