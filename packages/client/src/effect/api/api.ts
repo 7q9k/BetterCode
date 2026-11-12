@@ -2807,10 +2807,108 @@ export interface ConfigApi<E = never> {
   readonly update: ExperimentalConfigUpdateOperation<E>
 }
 
-export type ExperimentalConfigUpdateInput = { readonly shell: string | null }
+export type ExperimentalConfigUpdateInput = {
+  readonly shell?: string | null | undefined
+  readonly provider?:
+    | {
+        readonly id: string
+        readonly value: {
+          readonly canonical?: Provider.ID
+          readonly name?: string
+          readonly env?: ReadonlyArray<string>
+          readonly package?: string
+          readonly compatibility?: {
+            readonly reasoningField?: Model.ReasoningField
+            readonly requireReasoning?: boolean
+            readonly maxTokensField?: Model.MaxTokensField
+            readonly requireFinishReason?: boolean
+            readonly requireAssistantAfterTool?: boolean
+            readonly supportsPromptCacheKey?: boolean
+            readonly streamUsage?: boolean
+            readonly cacheFormat?: "anthropic" | "alibaba"
+            readonly mediaInput?: Model.MediaInput
+          }
+          readonly settings?: {
+            readonly timeout?: number | false
+            readonly headerTimeout?: number | false
+            readonly chunkTimeout?: number | false
+            readonly compaction?: Provider.Compaction
+            readonly cache?: Provider.Cache
+            readonly transport?: Provider.Transport
+            readonly encoding?: Provider.Encoding
+          } & { readonly [x: string]: Schema.Json | undefined }
+          readonly headers?: { readonly [x: string]: string }
+          readonly body?: { readonly [x: string]: Schema.Json }
+          readonly models?: {
+            readonly [x: string]: {
+              readonly modelID?: string
+              readonly type?: Model.Type
+              readonly family?: string
+              readonly name?: string
+              readonly releaseDate?: string
+              readonly compatibility?: Model.Compatibility
+              readonly package?: string
+              readonly settings?: {
+                readonly compaction?: Provider.Compaction
+                readonly cache?: Provider.Cache
+                readonly encoding?: Provider.Encoding
+              } & { readonly [x: string]: Schema.Json | undefined }
+              readonly headers?: { readonly [x: string]: string }
+              readonly body?: { readonly [x: string]: Schema.Json }
+              readonly capabilities?: {
+                readonly tools?: boolean
+                readonly freeform?: ReadonlyArray<"text" | "regex" | "lark">
+                readonly input?: ReadonlyArray<string>
+                readonly output?: ReadonlyArray<string>
+                readonly temperature?: boolean
+                readonly reasoning?:
+                  | { readonly supported: false }
+                  | {
+                      readonly supported: true
+                      readonly toggle?: boolean
+                      readonly effort?: ReadonlyArray<string>
+                      readonly budget?: { readonly min?: number; readonly max?: number }
+                    }
+              }
+              readonly variants?: ReadonlyArray<{
+                readonly id: string
+                readonly settings?: {
+                  readonly compaction?: Provider.Compaction
+                  readonly encoding?: Provider.Encoding
+                } & { readonly [x: string]: Schema.Json | undefined }
+                readonly headers?: { readonly [x: string]: string }
+                readonly body?: { readonly [x: string]: Schema.Json }
+              }>
+              readonly cost?:
+                | {
+                    readonly tier?: { readonly type: "context"; readonly size: number }
+                    readonly input: Money.USDPerMillionTokens
+                    readonly output: Money.USDPerMillionTokens
+                    readonly cache?: {
+                      readonly read?: Money.USDPerMillionTokens
+                      readonly write?: Money.USDPerMillionTokens
+                    }
+                  }
+                | ReadonlyArray<{
+                    readonly tier?: { readonly type: "context"; readonly size: number }
+                    readonly input: Money.USDPerMillionTokens
+                    readonly output: Money.USDPerMillionTokens
+                    readonly cache?: {
+                      readonly read?: Money.USDPerMillionTokens
+                      readonly write?: Money.USDPerMillionTokens
+                    }
+                  }>
+              readonly disabled?: boolean
+              readonly limit?: { readonly context?: number; readonly input?: number; readonly output?: number }
+            }
+          }
+        } | null
+      }
+    | undefined
+}
 export type ExperimentalConfigUpdateOutput = void
 export type ExperimentalConfigUpdateOperation<E = never> = (
-  input: ExperimentalConfigUpdateInput,
+  input?: ExperimentalConfigUpdateInput,
 ) => Effect.Effect<ExperimentalConfigUpdateOutput, E>
 
 export interface ExperimentalConfigApi<E = never> {

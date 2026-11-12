@@ -30,6 +30,7 @@ import { CONSOLE_INTEGRATION, type ProviderDialogBody, type ProviderDialogFrame 
 import { connectMethods, selectProviderConnectView, type ProviderConnectMethod } from "./machine"
 import type { ProviderFormInput, ProviderFormView } from "./form-machine"
 import { ConsoleAuthorization } from "./console"
+import { DialogCustomEndpoint } from "./custom-endpoint"
 import { DialogChatGPTPlanWelcome } from "./chatgpt-welcome"
 import { authServerName, RemoteAuthNotice } from "./remote"
 import { providerAccounts } from "@/settings/providers/accounts"
@@ -231,12 +232,20 @@ export const DialogConnectProvider: Component<{
 
 const CLAUDE_CODE_SETUP_URL = "https://code.claude.com/docs/en/setup"
 
+// The custom endpoint entries: API names are product names and stay in English in every language.
+const CUSTOM_ENDPOINTS = [
+  { format: "openai-chat", name: "OpenAI-compatible", note: "dialog.provider.custom.openaiChat" },
+  { format: "openai-responses", name: "OpenAI Responses-compatible", note: "dialog.provider.custom.openaiResponses" },
+  { format: "anthropic-messages", name: "Anthropic-compatible", note: "dialog.provider.custom.anthropic" },
+] as const
+
 // The TUI's integration groups and order, with connected integrations pulled up into their own group first.
 const POPULAR = ["opencode", "opencode-go", "openai", "github-copilot", "anthropic", "google"]
 
 function ProviderPicker(props: { directory?: string; onSelect: (provider: string) => void; onPrepare?: () => void }) {
   const integrations = useIntegrations(() => props.directory)
   const language = useLanguage()
+  const dialog = useDialog()
 
   const [store, setStore] = createStore<{
     filter: string
@@ -337,6 +346,30 @@ function ProviderPicker(props: { directory?: string; onSelect: (provider: string
       </div>
       <div class="relative min-h-0 flex-1">
         <div class="flex size-full min-h-0 flex-col gap-0.5 overflow-y-auto pb-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* Providers of your own: any local or self-hosted endpoint that speaks one of these APIs, configured by URL
+              and model IDs. Each entry opens the same form with its API chosen. */}
+          <Show when={!store.filter.trim()}>
+            <section class="flex flex-col gap-0.5">
+              <div class="px-2 pt-2.5 pb-0.5 text-[12px] font-[440] leading-[18px] tracking-[0.05px] text-v2-text-text-faint">
+                {language.t("dialog.provider.custom")}
+              </div>
+              <For each={CUSTOM_ENDPOINTS}>
+                {(entry) => (
+                  <button
+                    type="button"
+                    data-slot="custom-endpoint"
+                    data-format={entry.format}
+                    class="flex min-h-8 w-full items-center gap-2 rounded-md py-1.5 ps-2 pe-1.5 text-left text-[13px] leading-5 tracking-[-0.04px] hover:bg-v2-overlay-simple-overlay-hover focus:bg-v2-overlay-simple-overlay-hover focus:outline-none"
+                    onClick={() => void dialog.show(() => <DialogCustomEndpoint format={entry.format} />)}
+                  >
+                    <Icon name="plus" size="small" class="shrink-0 text-v2-icon-icon-base" />
+                    <span class="min-w-0 truncate font-[440] text-v2-text-text-base">{entry.name}</span>
+                    <span class="min-w-0 truncate font-[440] text-v2-text-text-faint">{language.t(entry.note)}</span>
+                  </button>
+                )}
+              </For>
+            </section>
+          </Show>
           <For each={groups()}>
             {(group) => (
               <Show when={group.items().length > 0}>

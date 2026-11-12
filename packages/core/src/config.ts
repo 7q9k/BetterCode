@@ -473,13 +473,27 @@ export const layer = (options?: Options) =>
           const filepath =
             (yield* Effect.filter(candidates, fs.isFile)).at(-1) ?? path.join(directory, "opencode.jsonc")
           const text = (yield* fs.readFileStringSafe(filepath)) ?? "{}\n"
+          // Each field a patch carries is one edit; null or undefined removes the key, as for `shell`.
+          const changes: Array<[Array<string>, unknown]> = [
+            ...("shell" in patch ? [[["shell"], patch.shell ?? undefined] as [Array<string>, unknown]] : []),
+            ...(patch.provider
+              ? [
+                  [
+                    ["providers", patch.provider.id],
+                    patch.provider.value ?? undefined,
+                  ] as [Array<string>, unknown],
+                ]
+              : []),
+          ]
           const updated = yield* Effect.try({
             try: () =>
-              applyEdits(
+              changes.reduce(
+                (current, [key, value]) =>
+                  applyEdits(
+                    current,
+                    modify(current, key, value, { formattingOptions: { tabSize: 2, insertSpaces: true } }),
+                  ),
                 text,
-                modify(text, ["shell"], patch.shell ?? undefined, {
-                  formattingOptions: { tabSize: 2, insertSpaces: true },
-                }),
               ),
             catch: (cause) => new FSUtil.FileSystemError({ method: "config.update", cause }),
           })

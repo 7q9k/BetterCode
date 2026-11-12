@@ -99,6 +99,51 @@ it.live("updates the global shell without replacing unrelated JSONC", () =>
   }),
 )
 
+it.live("sets and removes one provider in the global config without touching the rest", () =>
+  Effect.gen(function* () {
+    const tmp = yield* Effect.acquireDisposable(Effect.promise(() => tmpdir("opencode-config-provider-")))
+    const global = path.join(tmp.path, "global")
+    const config = path.join(global, "opencode.jsonc")
+    yield* Effect.promise(() => fs.mkdir(global, { recursive: true }))
+    yield* Effect.promise(() => fs.writeFile(config, `{\n  // keep this comment\n  "shell": "bash"\n}\n`))
+    const server = yield* startServer(global)
+    const patch = (body: unknown) =>
+      Effect.promise(() =>
+        fetch(new URL("/api/experimental/config", server.base), {
+          method: "PATCH",
+          headers: { ...server.headers, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      )
+    const read = () => Effect.promise(() => fs.readFile(config, "utf8"))
+
+    const set = yield* patch({
+      provider: {
+        id: "local-llm",
+        value: {
+          name: "Local LLM",
+          package: "@ai-sdk/openai-compatible",
+          settings: { baseURL: "http://localhost:11434/v1" },
+          models: { "qwen3-coder": { name: "qwen3-coder" } },
+        },
+      },
+    })
+    expect(set.status).toBe(204)
+    const written = yield* read()
+    expect(written).toContain("// keep this comment")
+    expect(written).toContain('"shell": "bash"')
+    expect(written).toContain('"baseURL": "http://localhost:11434/v1"')
+    expect(written).toContain('"qwen3-coder"')
+
+    expect((yield* patch({ provider: { id: "Not An ID", value: null } })).status).toBe(400)
+
+    expect((yield* patch({ provider: { id: "local-llm", value: null } })).status).toBe(204)
+    const removed = yield* read()
+    expect(removed).not.toContain("local-llm")
+    expect(removed).toContain('"shell": "bash"')
+  }),
+)
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }

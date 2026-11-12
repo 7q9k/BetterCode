@@ -116,8 +116,21 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   experimental: ConfigExperimental.Info.pipe(optional),
 }) {}
 
+/** A provider ID a patch may write: lowercase letters, digits, `-` and `_`, starting with a letter or digit. */
+export const PatchProviderID = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9_-]{0,63}$/u))
+
 export const Patch = Schema.Struct({
-  shell: Schema.NullOr(Schema.String),
+  shell: Schema.NullOr(Schema.String).pipe(optional),
+  provider: Schema.Struct({
+    id: PatchProviderID,
+    /**
+     * The provider's whole entry under `providers`, in its JSON form as the file stores it; null removes it. The
+     * encoded schema keeps the wire type plain JSON while still checking every field.
+     */
+    value: Schema.NullOr(Schema.toEncoded(ConfigProvider.Info)),
+  })
+    .pipe(optional)
+    .annotate({ description: "Set or remove one provider in the global configuration's `providers`." }),
 }).annotate({ identifier: "Config.Patch" })
 export interface Patch extends Schema.Schema.Type<typeof Patch> {}
 
