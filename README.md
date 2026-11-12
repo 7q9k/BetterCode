@@ -87,7 +87,15 @@ Every release also lists the single files (command archives, macOS app bundles, 
 
 ## Next to OpenCode
 
-BetterCode keeps its own configuration, sessions and background service (`~/.config/bettercode`, `~/.local/share/bettercode`), so it runs beside an installed OpenCode without touching it.
+BetterCode keeps everything in one folder, `~/.bettercode` (on Windows `C:\Users\<name>\.bettercode`), so it runs beside an installed OpenCode without touching it:
+
+- `bin`: the `bettercode` command
+- `config`: settings and `AGENTS.md`, the rules every model follows in every project
+- `data`: sessions and logs
+- `state`: the background service registration and locks
+- `cache`: downloaded tools
+
+Versions before 0.0.10 used `~/.config/bettercode` and `~/.local/share/bettercode`. Their content moves into `~/.bettercode` on the first start that finds no background service running from them.
 
 ## Releasing
 

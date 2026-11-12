@@ -350,7 +350,15 @@ function manifest(path: Path.Path, netLogPath: string | undefined) {
 function serverLogRoots(path: Path.Path) {
   const xdgData = process.env.XDG_DATA_HOME || path.join(homedir(), ".local", "share")
 
-  return [...new Set([path.join(xdgData, "opencode", "log"), path.join(app.getPath("userData"), "opencode", "log")])]
+  // The bundled BetterCode CLI logs under ~/.bettercode/data, or under its XDG folder before v0.0.10.
+  return [
+    ...new Set([
+      path.join(homedir(), ".bettercode", "data", "log"),
+      path.join(xdgData, "bettercode", "log"),
+      path.join(xdgData, "opencode", "log"),
+      path.join(app.getPath("userData"), "opencode", "log"),
+    ]),
+  ]
 }
 
 type Entry = { name: string; path: string; offset: number } | { name: string; data: Uint8Array }

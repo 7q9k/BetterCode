@@ -1,5 +1,5 @@
 import { makeEventListener } from "@solid-primitives/event-listener"
-import { For, onMount, type JSX } from "solid-js"
+import { createSignal, For, onMount, type JSX } from "solid-js"
 import { Menu } from "@opencode/ui/menu"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
@@ -37,6 +37,9 @@ export function WindowsAppMenu(props: {
 }) {
   let lastFocused: HTMLElement | undefined
   const language = useLanguage()
+  // One submenu at a time: Kobalte leaves a sibling open when the pointer moves quickly from one trigger to the next,
+  // so File, View and Window could all stand open and overlap. Opening one closes the others.
+  const [openSubmenu, setOpenSubmenu] = createSignal<string>()
   const menubar = useMenubarItems()
 
   const entries = (menu: DesktopMenu) =>
@@ -106,7 +109,13 @@ export function WindowsAppMenu(props: {
   })
 
   return (
-    <Menu appearance="standard" gutter={4} modal={false} placement="bottom-start">
+    <Menu
+      appearance="standard"
+      gutter={4}
+      modal={false}
+      placement="bottom-start"
+      onOpenChange={(open) => !open && setOpenSubmenu(undefined)}
+    >
       <div
         data-component="desktop-icon-button"
         class="flex h-7 w-9 shrink-0 items-center justify-center rounded-[6px] px-1"
@@ -124,10 +133,18 @@ export function WindowsAppMenu(props: {
       <Menu.Portal>
         <Menu.Content class="desktop-app-menu">
           <Menu.Group>
-            <Menu.GroupLabel class="desktop-app-menu-heading">OpenCode</Menu.GroupLabel>
+            <Menu.GroupLabel class="desktop-app-menu-heading">BetterCode</Menu.GroupLabel>
             <For each={DESKTOP_MENU.filter((menu) => desktopMenuVisible(menu, "windows"))}>
               {(menu) => (
-                <DesktopMenuSubmenu label={language.t(menu.labelKey)}>
+                <DesktopMenuSubmenu
+                  label={language.t(menu.labelKey)}
+                  open={openSubmenu() === menu.id}
+                  onOpenChange={(open) => {
+                    if (open) return setOpenSubmenu(menu.id)
+
+                    if (openSubmenu() === menu.id) setOpenSubmenu(undefined)
+                  }}
+                >
                   <For each={entries(menu)}>
                     {(item) => {
                       const entry = item.entry
@@ -173,9 +190,14 @@ export function WindowsAppMenu(props: {
   )
 }
 
-function DesktopMenuSubmenu(props: { label: string; children: JSX.Element }) {
+function DesktopMenuSubmenu(props: {
+  label: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: JSX.Element
+}) {
   return (
-    <Menu.Sub>
+    <Menu.Sub open={props.open} onOpenChange={props.onOpenChange}>
       <Menu.SubTrigger>{props.label}</Menu.SubTrigger>
       <Menu.Portal>
         <Menu.SubContent class="desktop-app-menu desktop-app-menu-sub">{props.children}</Menu.SubContent>

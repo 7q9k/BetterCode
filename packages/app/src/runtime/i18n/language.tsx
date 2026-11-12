@@ -4,6 +4,7 @@ import { Option, Schema, SchemaGetter } from "effect"
 import { createSimpleContext } from "@opencode/ui/context"
 import { showToast } from "@opencode/ui/toast"
 import {
+  brandDictionary,
   I18nProvider,
   type UiI18n,
   pluralCategory,
@@ -308,7 +309,8 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
     // The committed pair: every reader switches only once the dictionary for the new locale is in hand, so `t()`
     // never suspends and the direction never flips ahead of the strings.
     const locale = createMemo(() => selectLocale(machine()))
-    const dictionary = createMemo(() => selectDictionary(machine()))
+    // Named BetterCode once per locale, so `t`, plurals, rich text and the native menu bar all read the product name.
+    const dictionary = createMemo(() => brandDictionary(selectDictionary(machine())))
     const intl = createMemo(() => INTL[locale()])
     // SAFETY: widens the initial `undefined` so a direction can be stored later.
     const [layout, setLayout] = createStore({ direction: undefined as Direction | undefined })

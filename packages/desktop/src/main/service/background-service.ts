@@ -10,7 +10,7 @@ import { cleanStages } from "./cli-stages"
 import { keptStages, serviceVersion, shouldRetryEnsure } from "./cli-version"
 import { DesktopCli } from "./desktop-cli"
 import { SidecarCredentials } from "./sidecar-credentials"
-import { takeSidecarProbe } from "./sidecar-probe"
+import { bettercodeServiceFile, takeSidecarProbe } from "./sidecar-probe"
 
 export * as BackgroundService from "./background-service"
 
@@ -110,13 +110,13 @@ const prepare = Effect.fn("BackgroundService.prepare")(function* (mode: Backgrou
 
   const state = process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state")
 
-  // The packaged app bundles a BetterCode release CLI, which registers under its own state folder (see
-  // OPENCODE_APP_NAME in packages/cli/script/build.ts); the client's default path names the upstream folder.
+  // The packaged app bundles a BetterCode release CLI, which registers under its own state folder; the client's
+  // default path names the upstream folder.
   const file =
     process.env.OPENCODE_DESKTOP_SERVER_CHANNEL === "local"
       ? path.join(state, "opencode", "service-local.json")
       : app.isPackaged
-        ? path.join(state, "bettercode", "service.json")
+        ? yield* Effect.promise(bettercodeServiceFile)
         : undefined
 
   return { cli, client, file, isolated, version }

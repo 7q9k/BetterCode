@@ -74,7 +74,24 @@ export function localizedListSeparator(locale: string, index: number, count: num
     .join("")
 }
 
-export function resolveTemplate(text: string, params?: UiI18nParams) {
+/**
+ * BetterCode is a fork of OpenCode: the translations name the product as upstream ships them, and this names it
+ * BetterCode at display time, so every locale follows without editing (and conflicting on) the upstream catalogs. The
+ * services OpenCode runs (Console, Go, Zen, Free, Black) keep their names, as do values filled into a template.
+ */
+export function brandName(text: string) {
+  return text.replace(/\bOpenCode\b(?! (?:Console|Go|Zen|Free|Black)\b)/g, "BetterCode")
+}
+
+/** A dictionary whose every value is named by `brandName`; its keys stay as they are. */
+export function brandDictionary<Dict extends Record<string, string>>(dictionary: Dict): Dict {
+  // SAFETY: only the values change, each from a string to a string, so every key keeps its value type.
+  return Object.fromEntries(Object.entries(dictionary).map(([key, value]) => [key, brandName(value)])) as Dict
+}
+
+export function resolveTemplate(source: string, params?: UiI18nParams) {
+  const text = brandName(source)
+
   if (!params) return text
 
   return text.replace(/{{\s*([^}]+?)\s*}}/g, (_, rawKey) => {

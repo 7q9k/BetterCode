@@ -1063,7 +1063,7 @@ function App() {
         ? [
             {
               name: "opencode.update",
-              title: "Update OpenCode",
+              title: "Update BetterCode",
               slash: { name: "update" },
               run: () => updater.open?.("manual"),
               category: "System",

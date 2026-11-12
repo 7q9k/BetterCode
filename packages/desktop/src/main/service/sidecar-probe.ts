@@ -17,16 +17,33 @@ export function startSidecarProbe() {
 
   if (version === "") return
 
-  // The bundled BetterCode CLI registers under its own state folder, as in background-service.ts.
-  const file = path.join(
-    process.env.XDG_STATE_HOME ?? path.join(app.getPath("home"), ".local", "state"),
-    "bettercode",
-    "service.json",
-  )
-
-  probe = import("@opencode/client/service")
-    .then(({ Service }) => Service.discover({ version, file }))
+  probe = Promise.all([import("@opencode/client/service"), bettercodeServiceFile()])
+    .then(([client, file]) => client.Service.discover({ version, file }))
     .catch(() => undefined)
+}
+
+let serviceFile: Promise<string> | undefined
+
+/**
+ * Where the bundled BetterCode CLI registers its service: `~/.bettercode/state` (see OPENCODE_APP_NAME in
+ * packages/cli/script/build.ts). Builds before v0.0.10 kept their data in the XDG folders; a service still running
+ * from those holds the database, so it is stopped first (the bundled CLI replaces it anyway) and the folders move.
+ */
+export function bettercodeServiceFile() {
+  serviceFile ??= locateServiceFile()
+
+  return serviceFile
+}
+
+async function locateServiceFile() {
+  if (process.env.XDG_STATE_HOME) return path.join(process.env.XDG_STATE_HOME, "bettercode", "service.json")
+  const { bettercodeFolders, pendingMoveService } = await import("@opencode/util/bettercode-home")
+  const { Service } = await import("@opencode/client/service")
+  const pending = pendingMoveService(app.getPath("home"))
+
+  if (pending) await Service.stop({ file: pending, pty: "handoff" }).catch(() => undefined)
+
+  return path.join(bettercodeFolders(app.getPath("home")).state, "service.json")
 }
 
 /** The probe's result, once: a later connect must not adopt a service that may have exited since boot. */

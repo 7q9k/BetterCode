@@ -24,7 +24,7 @@ export default Runtime.handler(
       const target = Option.getOrUndefined(input.target) ?? (yield* updater.latest(method))
       const version = target.trim().replace(/^v/, "")
       if (version === OPENCODE_VERSION) {
-        log.warn(`OpenCode upgrade skipped: ${version} is already installed`)
+        log.warn(`BetterCode upgrade skipped: ${version} is already installed`)
         outro("Done")
         return
       }
