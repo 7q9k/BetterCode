@@ -27,6 +27,8 @@ export type SessionComposerRegionViewController = Pick<
 export function SessionComposerRegion(props: {
   controller: SessionComposerRegionViewController
   above?: JSX.Element
+  /** A row under the composer, shown with it. */
+  below?: JSX.Element
   composer: JSX.Element
   subagent: JSX.Element
 }) {
@@ -102,6 +104,7 @@ export function SessionComposerRegion(props: {
                   >
                     {props.composer}
                   </div>
+                  {props.below}
                 </Show>
               </div>
             )}

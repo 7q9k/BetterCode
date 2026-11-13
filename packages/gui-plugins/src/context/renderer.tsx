@@ -3,6 +3,7 @@ import { Slot, usePanel, type Plugin } from "@opencode/plugin/gui"
 import { BuiltinPanel, onIdle, type BuiltinPanelTab } from "@opencode/plugin/gui/builtin"
 import type definition from "./index"
 import { SessionContextUsage } from "./indicator"
+import { ComposerUsage } from "./usage-bar"
 
 const setup: Plugin.Setup<typeof definition> = (ctx) => {
   const SessionContextTab = lazy(() => import("./tab"))
@@ -33,6 +34,11 @@ const setup: Plugin.Setup<typeof definition> = (ctx) => {
     render: (input) => (
       <SessionContextUsage session={input.session} active={input.active} placement="bottom" compact={input.compact} />
     ),
+  })
+
+  ctx.add(Slot, {
+    at: "session.composer.bottom",
+    render: (input) => <ComposerUsage session={input.session} />,
   })
 
   ctx.add(

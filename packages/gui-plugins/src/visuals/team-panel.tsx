@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
+import { Option, Schema } from "effect"
 import type { MountedSession } from "@opencode/plugin/gui"
 import {
   memberActive,
@@ -6,11 +7,13 @@ import {
   runDuration,
   teamMembers,
   teamRuns,
+  teamStage,
   type TeamMember,
   type TeamRole,
   type TeamRunStatus,
   type TeamSetup,
 } from "./team"
+import { TeamGraph } from "./team-graph"
 
 type Key =
   | "team.on"
@@ -27,10 +30,16 @@ type Key =
   | "team.activity"
   | "team.activity.empty"
   | "team.ask"
+  | "team.ready"
+  | "team.thinking"
+  | "team.writing"
+  | "team.using"
   | `team.role.${TeamRole}`
   | `team.status.${TeamRunStatus}`
 
 type Translate = (key: Key) => string
+
+const decodeString = Schema.decodeUnknownOption(Schema.String)
 
 // Monochrome status marks, as in the plan graph.
 const mark: Record<TeamRunStatus, JSX.CSSProperties> = {
@@ -90,6 +99,22 @@ export function TeamPanel(props: {
   const crew = () => members().filter((member) => member.role !== "lead")
   const [editing, setEditing] = createSignal(false)
 
+  const busy = () => props.session.server.data.session.status(props.session.id) === "running"
+
+  // A subagent works in its own session after its call returns. Until that session's info has loaded, it counts as
+  // running while the lead still works, as the lead waits for or watches it.
+  const child = (sessionID: string | undefined) => {
+    if (!sessionID) return undefined
+    const data = props.session.server.data.session
+    const info = data.get(sessionID)
+
+    return {
+      running: data.status(sessionID) === "running" || (!info && busy()),
+      ended: info?.time.idle,
+      failed: info?.outcome === "failed",
+    }
+  }
+
   const runs = createMemo(() =>
     teamRuns(
       props.session.server.data.session.message.list(props.session.id).flatMap((message) =>
@@ -104,6 +129,12 @@ export function TeamPanel(props: {
                       input: part.state.input,
                       created: part.time.created,
                       completed: part.time.completed,
+                      // Tool metadata is open JSON, so a session ID of the wrong type reads as absent.
+                      child: child(
+                        part.state.status === "streaming"
+                          ? undefined
+                          : Option.getOrUndefined(decodeString(part.state.metadata?.sessionID)),
+                      ),
                     },
                   ]
                 : [],
@@ -113,13 +144,33 @@ export function TeamPanel(props: {
     ),
   )
 
-  // The agents the lead has started in this session, in team order.
-  const started = () => crew().filter((member) => memberWork(member, runs()))
-
-  // A clock for the durations of running subagents; it ticks only while one runs.
+  // A clock for durations and for fading finished agents off the graph; it ticks only while the graph shows one.
   const [now, setNow] = createSignal(Date.now())
-  const timer = setInterval(() => runs().some((run) => run.status === "running") && setNow(Date.now()), 1000)
+  const stage = createMemo(() => teamStage(runs(), now()))
+
+  const timer = setInterval(() => {
+    if (runs().some((run) => run.status === "running") || stage().length > 0) setNow(Date.now())
+  }, 250)
+
   onCleanup(() => clearInterval(timer))
+
+  // What the lead is doing now, from the last part of its latest answer.
+  const activity = createMemo(() => {
+    if (!busy()) return props.t("team.ready")
+
+    const last = props.session.server.data.session.message
+      .list(props.session.id)
+      .findLast((message) => message.type === "assistant")
+
+    const part = last?.type === "assistant" ? last.content.at(-1) : undefined
+
+    if (part?.type === "tool" && part.state.status === "running")
+      return props.t("team.using").replace("{{tool}}", part.name)
+
+    if (part?.type === "text") return props.t("team.writing")
+
+    return props.t("team.thinking")
+  })
 
   return (
     <div
@@ -232,7 +283,26 @@ export function TeamPanel(props: {
         </Show>
       </div>
 
-      {/* The picture: the lead on top, a trunk down, and every agent below with its current work. */}
+      <Show when={!editing()}>
+        <TeamGraph
+          runs={stage()}
+          now={now()}
+          lead={{
+            name:
+              leads()
+                .map((member) => member.name)
+                .join(" / ") || props.t("team.lead"),
+            model: props.leadModel,
+            activity: activity(),
+            busy: busy(),
+          }}
+          empty={props.t(props.setup.enabled ? "team.waiting" : "team.off")}
+          statusLabel={(status) => props.t(`team.status.${status}`)}
+        />
+      </Show>
+
+      {/* While editing: the lead on top, a trunk down, and every agent below with a checkbox. */}
+      <Show when={editing()}>
       <div style={{ padding: "14px 12px 4px", display: "flex", "flex-direction": "column", "align-items": "center" }}>
         <div
           data-slot="team-lead"
@@ -270,7 +340,7 @@ export function TeamPanel(props: {
           </Show>
         </div>
         <Show
-          when={editing() || started().length > 0}
+          when={crew().length > 0}
           fallback={
             <div
               style={{
@@ -297,7 +367,7 @@ export function TeamPanel(props: {
               opacity: props.setup.enabled ? 1 : 0.45,
             }}
           >
-            <For each={editing() ? crew() : started()}>
+            <For each={crew()}>
               {(member) => {
                 const active = () => memberActive(member, props.setup)
                 const work = () => memberWork(member, runs())
@@ -406,6 +476,7 @@ export function TeamPanel(props: {
           </div>
         </Show>
       </div>
+      </Show>
 
       <Show when={!editing()}>
         <div style={heading}>{props.t("team.activity")}</div>

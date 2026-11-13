@@ -34,6 +34,7 @@ import { syncPromptModel } from "../session-model-helpers"
 import type { SessionTimelineInteraction } from "../timeline/interaction"
 import { createSessionRevert } from "../revert"
 import { useSessionFork } from "../fork"
+import { PluginSlot } from "@/runtime/plugin/render"
 import { SessionComposerRegion } from "./session-composer-region"
 import { createSessionComposerController, type SessionComposerController } from "./controller"
 import { SessionQueuePanel } from "./queue-panel"
@@ -467,6 +468,7 @@ export function ActiveSessionComposerRegion(props: {
 
   const alignment = useComposerLaneAlignment()
   const todos = createMemo(() => sessionTodos(props.session.history.messages(), props.session.data.revertMessageID()))
+
   // The plan shows while the turn still has work left, and once finished until the user's next prompt, so a plan from
   // an earlier turn (or an old V1 `todowrite` call) never comes back.
   const todosVisible = () =>
@@ -474,6 +476,7 @@ export function ActiveSessionComposerRegion(props: {
     todos().length > 0 &&
     ((props.session.data.working() && !todos().every(todoFinished)) ||
       planInCurrentTurn(props.session.history.messages(), props.session.data.revertMessageID()))
+
   // Matches the server: BetterCode turns `todowrite` on unless the highest-priority document that sets `experimental`
   // turns it off.
   const todoEnabled = () =>
@@ -559,6 +562,21 @@ export function ActiveSessionComposerRegion(props: {
   return (
     <SessionComposerRegion
       controller={props.model.region}
+      below={
+        <Show when={!missing() && !props.session.data.isChild()}>
+          <PluginSlot
+            at="session.composer.bottom"
+            input={{
+              get session() {
+                return props.view()
+              },
+              get screen() {
+                return props.screen
+              },
+            }}
+          />
+        </Show>
+      }
       subagent={
         <Show when={props.session.data.info()}>
           {(info) => (

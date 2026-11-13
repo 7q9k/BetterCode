@@ -42,6 +42,11 @@ export type ToolInput = {
   readonly input: unknown
   readonly created: number
   readonly completed?: number
+  /**
+   * The subagent's own session, when the call started one. The call itself returns at once while the agent keeps
+   * working in that session, so its state, not the call's, says whether the agent still runs and how it ended.
+   */
+  readonly child?: { readonly running: boolean; readonly ended?: number; readonly failed: boolean }
 }
 
 const SUBAGENT_TOOLS: readonly string[] = ["subagent", "task"]
@@ -93,16 +98,20 @@ export function teamRuns(tools: readonly ToolInput[]): TeamRun[] {
       const input = Option.getOrUndefined(decodeRun(tool.input))
       const agent = input?.agent?.trim() || input?.subagent_type?.trim() || "general"
       const task = input?.description?.trim() || input?.prompt?.trim().split("\n")[0] || agent
+      const child = tool.child
+
+      const status: TeamRunStatus =
+        tool.status === "error" || child?.failed ? "failed" : child?.running ? "running" : RUN_STATUS[tool.status]
 
       return [
         {
           id: tool.id,
           agent,
           task,
-          status: RUN_STATUS[tool.status],
+          status,
           model: input?.model?.trim() || undefined,
           started: tool.created,
-          ended: tool.completed,
+          ended: status === "running" ? undefined : (child?.ended ?? tool.completed),
         },
       ]
     })
@@ -128,6 +137,85 @@ export function runDuration(run: TeamRun, now: number) {
   const seconds = Math.max(0, Math.round(((run.ended ?? now) - run.started) / 1000))
 
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+}
+
+/** How long a finished run stays on the graph, and how long its fade-out takes at the end of that time. */
+export const LINGER = { done: 5000, failed: 9000, fade: 600 } as const
+
+/** A run on the graph, and whether it is fading out. */
+export type StageRun = TeamRun & { readonly leaving: boolean }
+
+/**
+ * The runs the graph shows at `now`, oldest first so new agents join at the end: every running run, and a finished one
+ * until its linger time is over, fading out during the last part of it.
+ */
+export function teamStage(runs: readonly TeamRun[], now: number): StageRun[] {
+  return runs
+    .flatMap((run): StageRun[] => {
+      if (run.status === "running" || run.ended === undefined) return [{ ...run, leaving: false }]
+      const gone = run.ended + LINGER[run.status]
+
+      if (now >= gone) return []
+
+      return [{ ...run, leaving: now >= gone - LINGER.fade }]
+    })
+    .toSorted((a, b) => a.started - b.started)
+}
+
+/** The graph's geometry, in the units of its 300-wide view box. */
+export const GRAPH = { width: 300, lead: { x: 150, y: 16, w: 172, h: 58 }, card: { w: 134, h: 70 }, top: 118, row: 86 }
+
+/** Where each of `count` agent cards sits: two columns, an odd last card centred, rows going down. */
+export function teamLayout(count: number) {
+  const height = count === 0 ? GRAPH.lead.y + GRAPH.lead.h + 12 : GRAPH.top + Math.ceil(count / 2) * GRAPH.row
+
+  const cards = Array.from({ length: count }, (_, index) => {
+    const row = Math.floor(index / 2)
+    const alone = index === count - 1 && count % 2 === 1
+
+    return { x: alone ? 150 : index % 2 === 0 ? 78 : 222, y: GRAPH.top + row * GRAPH.row }
+  })
+
+  return { height, cards }
+}
+
+/** The link from the lead's bottom edge to the top of a card centred at `x`, starting at `y`. */
+export function teamLink(x: number, y: number) {
+  const start = GRAPH.lead.y + GRAPH.lead.h
+  const middle = (start + y) / 2
+
+  return `M ${GRAPH.lead.x} ${start} C ${GRAPH.lead.x} ${middle}, ${x} ${middle}, ${x} ${y}`
+}
+
+/** `text` cut to `max` characters with an ellipsis, so SVG text fits its card. */
+export function fitText(text: string, max: number) {
+  const flat = text.replace(/\s+/g, " ").trim()
+
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat
+}
+
+/** `text` broken at spaces into at most `lines` lines of `max` characters; the last line ends with an ellipsis if cut. */
+export function wrapText(text: string, max: number, lines: number) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean)
+
+  const wrapped = words.reduce<string[]>((result, word) => {
+    const last = result.at(-1)
+
+    if (last !== undefined && `${last} ${word}`.length <= max) result[result.length - 1] = `${last} ${word}`
+    else result.push(word)
+
+    return result
+  }, [])
+
+  if (wrapped.length <= lines) return wrapped.map((line) => fitText(line, max))
+
+  const kept = wrapped.slice(0, lines).map((line) => fitText(line, max))
+  const last = kept.at(-1) ?? ""
+
+  // More text follows the last line, so it ends with an ellipsis even when it fits.
+  const cut = last.endsWith("…") ? last : `${last.length < max ? last : last.slice(0, max - 1).trimEnd()}…`
+
+  return [...kept.slice(0, -1), cut]
 }
 
 /** The user's team setup, as the plugin stores it. */

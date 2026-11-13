@@ -890,6 +890,17 @@ export interface SlotMap {
     /** Whether the project menu is open. Subscribe to location data only while true. */
     readonly shown: boolean
   }
+  /**
+   * A thin row under the session's composer, for status that belongs with what the user is about to send (for example
+   * how much of the model's context the session uses). Rendered only while the composer shows, never for a subagent
+   * session or a session whose location is missing. Keep it one line high.
+   */
+  readonly "session.composer.bottom": {
+    /** The composer's owning session screen; always present. */
+    readonly screen: SessionScreen
+    /** The routed session; reads follow another routed session without a remount. */
+    readonly session: MountedSession
+  }
   /** The actions at the end of the side region's tab strip. */
   readonly "session.panel.end": {
     /** The owning session screen; always present. */

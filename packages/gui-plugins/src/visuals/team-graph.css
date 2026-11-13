@@ -1,0 +1,163 @@
+/* The Team tab's graph: agents grow out of the lead, work with a pulse and a flow along their link, then fade away. */
+
+[data-component="visuals-team-graph"] .team-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-node-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+[data-component="visuals-team-graph"] .team-node[data-leaving="true"] {
+  animation: team-node-out 600ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+[data-component="visuals-team-graph"] .team-link {
+  animation: team-link-in 500ms ease-out both;
+}
+
+[data-component="visuals-team-graph"] .team-link[data-leaving="true"] {
+  animation: team-link-out 600ms ease-in both;
+}
+
+[data-component="visuals-team-graph"] .team-link[data-status="running"] {
+  stroke-dasharray: 3 5;
+  animation:
+    team-link-in 500ms ease-out both,
+    team-flow 700ms linear infinite;
+}
+
+[data-component="visuals-team-graph"] .team-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-pulse 1.6s ease-out infinite;
+}
+
+[data-component="visuals-team-graph"] .team-dot[data-status="running"] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-dot 1s ease-in-out infinite;
+}
+
+[data-component="visuals-team-graph"] .team-check {
+  stroke-dasharray: 12;
+  animation: team-check 360ms 80ms ease-out both;
+}
+
+[data-component="visuals-team-graph"] .team-lead[data-busy="true"] .team-lead-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-breathe 2.4s ease-in-out infinite;
+}
+
+[data-component="visuals-team-graph"] .team-bar {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: team-bar 1.8s ease-in-out infinite;
+}
+
+@keyframes team-node-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes team-node-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.7);
+  }
+}
+
+@keyframes team-link-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes team-link-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes team-flow {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
+@keyframes team-pulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes team-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes team-check {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes team-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes team-bar {
+  0% {
+    transform: scaleX(0.08);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0.08);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="visuals-team-graph"] * {
+    animation: none !important;
+  }
+}

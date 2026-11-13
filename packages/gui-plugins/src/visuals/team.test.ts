@@ -7,7 +7,12 @@ import {
   teamMembers,
   teamNote,
   teamRuns,
+  teamLayout,
+  teamStage,
+  wrapText,
+  LINGER,
   type AgentInput,
+  type TeamRun,
   type ToolInput,
 } from "./team"
 
@@ -109,5 +114,59 @@ describe("team setup", () => {
     expect(note).not.toContain("- build")
     expect(teamNote(members, { enabled: false, off: [] })).toContain("turned the agent team OFF")
     expect(teamNote(members, { enabled: true, off: ["tester", "reviewer"] })).toContain("turned the agent team OFF")
+  })
+})
+
+describe("team graph", () => {
+  const run = (id: string, extra: Partial<TeamRun>): TeamRun => ({
+    id,
+    agent: id,
+    task: id,
+    status: "running",
+    started: 0,
+    ...extra,
+  })
+
+  test("running agents stay, finished ones fade out and then leave", () => {
+    const runs = [
+      run("late", { started: 20 }),
+      run("done", { status: "done", started: 10, ended: 1000 }),
+      run("failed", { status: "failed", started: 5, ended: 1000 }),
+    ]
+
+    expect(teamStage(runs, 2000).map((item) => item.id)).toEqual(["failed", "done", "late"])
+    expect(teamStage(runs, 1000 + LINGER.done - 100).find((item) => item.id === "done")?.leaving).toBe(true)
+    expect(teamStage(runs, 1000 + LINGER.done).map((item) => item.id)).toEqual(["failed", "late"])
+    expect(teamStage(runs, 1000 + LINGER.failed).map((item) => item.id)).toEqual(["late"])
+  })
+
+  test("cards fill two columns and centre an odd last one", () => {
+    expect(teamLayout(1).cards).toEqual([{ x: 150, y: 118 }])
+    expect(teamLayout(3).cards.map((card) => card.x)).toEqual([78, 222, 150])
+    expect(teamLayout(3).height).toBeGreaterThan(teamLayout(2).height)
+  })
+
+  test("task text wraps at spaces and ends with an ellipsis when cut", () => {
+    expect(wrapText("review the parser changes", 12, 2)).toEqual(["review the", "parser…"])
+    expect(wrapText("short", 12, 2)).toEqual(["short"])
+  })
+})
+
+describe("subagent runs follow their own session", () => {
+  const call = (child: ToolInput["child"]): ToolInput => ({
+    id: "call",
+    name: "subagent",
+    status: "completed",
+    input: { agent: "explore", description: "Count files" },
+    created: 1,
+    completed: 2,
+    child,
+  })
+
+  test("a returned call whose session still works is running, and ends when the session goes idle", () => {
+    expect(teamRuns([call({ running: true, failed: false })])[0]).toMatchObject({ status: "running", ended: undefined })
+    expect(teamRuns([call({ running: false, ended: 900, failed: false })])[0]).toMatchObject({ status: "done", ended: 900 })
+    expect(teamRuns([call({ running: false, ended: 900, failed: true })])[0]?.status).toBe("failed")
+    expect(teamRuns([call(undefined)])[0]).toMatchObject({ status: "done", ended: 2 })
   })
 })

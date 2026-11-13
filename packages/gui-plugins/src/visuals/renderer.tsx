@@ -1,4 +1,4 @@
-import { CodeBlock, createKeyed, Panel, type MountedSession, type Plugin } from "@opencode/plugin/gui"
+import { CodeBlock, createKeyed, Panel, Style, type MountedSession, type Plugin } from "@opencode/plugin/gui"
 import { showToast } from "@opencode/ui/toast"
 import { teamMembers, teamNote } from "./team"
 import type VisualsDefinition from "./index"
@@ -7,6 +7,7 @@ import { collectPlans, parseChart, parsePlan } from "./model"
 import { PlanGraph } from "./plan-graph"
 import { PlansPanel, sessionTexts } from "./plans-panel"
 import { TeamPanel } from "./team-panel"
+import teamGraphStyles from "./team-graph.css?inline"
 
 const PLANS_TAB = "plans"
 
@@ -17,6 +18,8 @@ const PLANS_TAB = "plans"
  */
 const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
   const t = (key: Parameters<typeof ctx.t>[0]) => ctx.t(key)
+
+  ctx.add(Style, teamGraphStyles)
 
   ctx.add(CodeBlock, {
     languages: ["plan", "dag", "plan-graph"],
