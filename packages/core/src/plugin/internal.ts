@@ -118,6 +118,7 @@ import { OptimizePlugin } from "./optimize.js"
 import { VcsGitPlugin } from "./vcs/git.js"
 import { VerbosityPlugin } from "./verbosity.js"
 import { WarmingPlugin } from "./warming.js"
+import { ComputerTool } from "../tool/plugin/computer.js"
 import { WellKnownPlugin } from "../wellknown/plugin.js"
 
 const services = [
@@ -292,6 +293,8 @@ const post = [
   ConfigReferencePlugin.Plugin,
   ConfigAgentPlugin.Plugin,
   BrowserPlugin,
+  // After config, like the browser: its "ask first" rule must follow every configured agent rule.
+  ComputerTool.Plugin,
   ConfigCommandPlugin.Plugin,
   ConfigCompactionPlugin.Plugin,
   ConfigFormatterPlugin.Plugin,

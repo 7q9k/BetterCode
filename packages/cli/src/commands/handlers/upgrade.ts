@@ -17,7 +17,19 @@ export default Runtime.handler(
       if (!method)
         return yield* Effect.fail(
           (yield* updater.managed(Option.getOrUndefined(input.target))) ??
-            new Error("Could not detect the installation method. Pass --method to choose how to upgrade OpenCode."),
+            new Error("Could not detect the installation method. Pass --method curl to upgrade BetterCode with its installer."),
+        )
+
+      // BetterCode ships only through its own installer. The package-manager methods are OpenCode's and would replace
+      // this copy with OpenCode, so they stop here with a pointer to the installer.
+      if (method !== "curl")
+        return yield* Effect.fail(
+          new Updater.UpgradeError({
+            title: "BetterCode updates only through its own installer",
+            detail: `The ${method} method installs OpenCode, not BetterCode.`,
+            command: "bettercode upgrade --method curl",
+            retry: "Run bettercode upgrade --method curl.",
+          }),
         )
 
       log.info(`Using method: ${method}`)

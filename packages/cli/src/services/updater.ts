@@ -557,8 +557,9 @@ const make = Effect.gen(function* () {
             method,
             runUpgrade({
               method,
-              command: [bash, installer, "--version", version, "--no-modify-path"],
-              displayCommand: ["opencode", "upgrade", version, "--method", "curl"],
+              // The desktop app updates itself; reinstalling it here would replace it under a running app.
+              command: [bash, installer, "--version", version, "--no-modify-path", "--no-desktop"],
+              displayCommand: ["bettercode", "upgrade", version, "--method", "curl"],
               title: "The BetterCode installer failed",
             }),
           )

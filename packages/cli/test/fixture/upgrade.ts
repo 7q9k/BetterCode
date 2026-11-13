@@ -20,7 +20,7 @@ await Effect.runPromise(
       method: () =>
         Effect.sync(() => {
           record("method")
-          return Updater.methods.find((method) => method === (process.env.UPGRADE_TEST_METHOD ?? "npm"))
+          return Updater.methods.find((method) => method === (process.env.UPGRADE_TEST_METHOD ?? "curl"))
         }),
       latest: (method) =>
         Effect.suspend(() => {

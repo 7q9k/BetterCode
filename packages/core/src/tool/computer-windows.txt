@@ -1,0 +1,151 @@
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @"
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+public static class BetterCodeComputer {
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT point);
+  [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+  [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
+
+  [StructLayout(LayoutKind.Sequential)] struct POINT { public int X; public int Y; }
+  [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+  [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+  [StructLayout(LayoutKind.Explicit)] struct UNION { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public UNION u; }
+
+  public static void Init() { SetProcessDPIAware(); }
+
+  public static int[] Screen() {
+    return new int[] { GetSystemMetrics(76), GetSystemMetrics(77), GetSystemMetrics(78), GetSystemMetrics(79) };
+  }
+
+  public static int[] Cursor() { POINT p; GetCursorPos(out p); return new int[] { p.X, p.Y }; }
+
+  // Glides the pointer in small steps, so the user sees where it goes and the app's drawn cursor can follow.
+  public static void Glide(int x, int y, int ms) {
+    POINT p; GetCursorPos(out p);
+    int steps = Math.Max(1, ms / 12);
+    for (int i = 1; i <= steps; i++) {
+      double t = (double)i / steps;
+      double e = t < 0.5 ? 2 * t * t : 1 - Math.Pow(-2 * t + 2, 2) / 2;
+      SetCursorPos((int)Math.Round(p.X + (x - p.X) * e), (int)Math.Round(p.Y + (y - p.Y) * e));
+      Thread.Sleep(12);
+    }
+    SetCursorPos(x, y);
+  }
+
+  static void Mouse(uint flags, uint data) {
+    INPUT[] input = new INPUT[1];
+    input[0].type = 0;
+    input[0].u.mi.dwFlags = flags;
+    input[0].u.mi.mouseData = data;
+    SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  public static void Button(string button, int clicks) {
+    uint down = button == "right" ? 0x0008u : button == "middle" ? 0x0020u : 0x0002u;
+    for (int i = 0; i < clicks; i++) { Mouse(down, 0); Thread.Sleep(30); Mouse(down * 2, 0); Thread.Sleep(60); }
+  }
+
+  public static void Press(string button, bool down) {
+    uint flag = button == "right" ? 0x0008u : button == "middle" ? 0x0020u : 0x0002u;
+    Mouse(down ? flag : flag * 2, 0);
+  }
+
+  public static void Wheel(int dy, int dx) {
+    if (dy != 0) Mouse(0x0800, unchecked((uint)(-dy * 120)));
+    if (dx != 0) Mouse(0x1000, unchecked((uint)(dx * 120)));
+  }
+
+  static void Key(ushort vk, ushort scan, uint flags) {
+    INPUT[] input = new INPUT[1];
+    input[0].type = 1;
+    input[0].u.ki.wVk = vk;
+    input[0].u.ki.wScan = scan;
+    input[0].u.ki.dwFlags = flags;
+    SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  // Types text as Unicode characters, so it does not depend on the keyboard layout.
+  public static void Text(string text) {
+    foreach (char c in text) {
+      if (c == '\n') { Key(0x0D, 0, 0); Key(0x0D, 0, 2); }
+      else { Key(0, c, 4); Key(0, c, 6); }
+      Thread.Sleep(8);
+    }
+  }
+
+  // Presses the virtual keys together, as a shortcut: in order down, then released in reverse.
+  public static void Chord(int[] keys) {
+    foreach (int k in keys) Key((ushort)k, 0, 0);
+    Thread.Sleep(30);
+    for (int i = keys.Length - 1; i >= 0; i--) Key((ushort)keys[i], 0, 2);
+  }
+
+  // A rectangle of the virtual desktop, scaled so its longer side is at most max pixels, as a base64 PNG.
+  public static string Shot(int x, int y, int w, int h, int max, out int width, out int height) {
+    using (Bitmap full = new Bitmap(w, h)) {
+      using (Graphics g = Graphics.FromImage(full)) g.CopyFromScreen(x, y, 0, 0, full.Size);
+      double scale = Math.Min(1.0, (double)max / Math.Max(w, h));
+      width = Math.Max(1, (int)Math.Round(w * scale));
+      height = Math.Max(1, (int)Math.Round(h * scale));
+      using (Bitmap small = new Bitmap(width, height)) {
+        using (Graphics g = Graphics.FromImage(small)) {
+          g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+          g.DrawImage(full, 0, 0, width, height);
+        }
+        using (MemoryStream stream = new MemoryStream()) {
+          small.Save(stream, ImageFormat.Png);
+          return Convert.ToBase64String(stream.ToArray());
+        }
+      }
+    }
+  }
+}
+"@ -ReferencedAssemblies System.Drawing
+[BetterCodeComputer]::Init()
+[Console]::Out.WriteLine('{"ready":true}')
+[Console]::Out.Flush()
+
+while ($true) {
+  $line = [Console]::In.ReadLine()
+  if ($null -eq $line) { break }
+  try {
+    $c = $line | ConvertFrom-Json
+    $result = @{ ok = $true }
+    switch ($c.op) {
+      'screen' {
+        $s = [BetterCodeComputer]::Screen()
+        $p = [BetterCodeComputer]::Cursor()
+        $result.screen = @($s[0], $s[1], $s[2], $s[3])
+        $result.cursor = @($p[0], $p[1])
+      }
+      'shot' {
+        $w = 0; $h = 0
+        $result.image = [BetterCodeComputer]::Shot([int]$c.x, [int]$c.y, [int]$c.w, [int]$c.h, [int]$c.max, [ref]$w, [ref]$h)
+        $result.width = $w
+        $result.height = $h
+      }
+      'move' { [BetterCodeComputer]::Glide([int]$c.x, [int]$c.y, [int]$c.ms) }
+      'click' { [BetterCodeComputer]::Button([string]$c.button, [int]$c.clicks) }
+      'press' { [BetterCodeComputer]::Press([string]$c.button, [bool]$c.down) }
+      'wheel' { [BetterCodeComputer]::Wheel([int]$c.dy, [int]$c.dx) }
+      'text' { [BetterCodeComputer]::Text([string]$c.text) }
+      'chord' { [BetterCodeComputer]::Chord([int[]]$c.keys) }
+      default { throw "Unknown operation $($c.op)" }
+    }
+  } catch {
+    $result = @{ ok = $false; error = $_.Exception.Message }
+  }
+  [Console]::Out.WriteLine(($result | ConvertTo-Json -Compress -Depth 4))
+  [Console]::Out.Flush()
+}
