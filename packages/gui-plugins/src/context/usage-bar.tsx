@@ -1,7 +1,7 @@
 import { createMemo, Show } from "solid-js"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useI18n } from "@opencode/ui/context/i18n"
-import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
+import { usePlugin, type MountedSession, type SessionScreen } from "@opencode/plugin/gui"
 import type definition from "./index"
 import { createSessionUsage } from "./indicator"
 
@@ -15,13 +15,15 @@ const FULL = 92
  * the tokens against the limit, and what the session has cost. Hovering shows the tokens by kind; clicking opens the
  * Context tab. Nothing shows before the session's first answer.
  */
-export function ComposerUsage(props: { session: MountedSession }) {
+export function ComposerUsage(props: { session: MountedSession; screen: SessionScreen }) {
   const ctx = usePlugin<typeof definition>()
   const i18n = useI18n()
 
+  // The limit follows the model picked in the composer, so it changes as soon as the user picks another one.
   const usage = createSessionUsage(
     () => props.session,
     () => true,
+    () => props.screen.composer.model(),
   )
 
   const compact = createMemo(

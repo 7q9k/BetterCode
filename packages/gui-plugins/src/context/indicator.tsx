@@ -5,15 +5,20 @@ import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { lastAssistantWithUsage } from "@opencode/client/solid"
-import { usePlugin, type MountedSession } from "@opencode/plugin/gui"
+import { usePlugin, type ComposerModel, type MountedSession, type SessionScreen } from "@opencode/plugin/gui"
 import { catalogModel, syncCatalog } from "./catalog"
 
 /**
  * A session's usage, shared by the header indicator and the bar under the composer: the context the latest answer
  * filled (its tokens by kind, the model's limit and the share of it), what the session family has cost, and whether
- * the cost is worth showing.
+ * the cost is worth showing. The limit is the one of `selected`, the model the composer sends the next prompt with,
+ * so picking another model updates it at once; without one it is the limit of the model that wrote the answer.
  */
-export function createSessionUsage(session: () => MountedSession, active: () => boolean) {
+export function createSessionUsage(
+  session: () => MountedSession,
+  active: () => boolean,
+  selected: () => ComposerModel | undefined = () => undefined,
+) {
   const catalog = syncCatalog(session, active)
 
   const messages = createMemo(() => (session().id ? session().server.data.session.message.list(session().id) : []))
@@ -25,7 +30,8 @@ export function createSessionUsage(session: () => MountedSession, active: () => 
     const message = lastAssistantWithUsage(messages(), info()?.revert?.messageID)
 
     if (!message) return
-    const model = catalogModel(session(), message.model)?.model
+    const next = selected()
+    const model = catalogModel(session(), next ? { providerID: next.providerID, id: next.modelID } : message.model)?.model
 
     const total =
       message.tokens.input +
@@ -67,6 +73,8 @@ export function SessionContextUsage(props: {
   placement?: ComponentProps<typeof Tooltip>["placement"]
   /** The button shows only its ring and opens the usage in a menu, so a narrow header keeps room for the title. */
   compact?: boolean
+  /** The session's screen, whose composer model sets the context limit; without it, the answering model's. */
+  screen?: SessionScreen
 }) {
   const ctx = usePlugin()
   const layout = ctx.layout
@@ -75,6 +83,7 @@ export function SessionContextUsage(props: {
   const usage = createSessionUsage(
     () => props.session,
     () => props.active !== false,
+    () => props.screen?.composer.model(),
   )
 
   const catalog = usage.catalog

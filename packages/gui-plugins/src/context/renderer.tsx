@@ -32,13 +32,19 @@ const setup: Plugin.Setup<typeof definition> = (ctx) => {
     at: "session.header",
     order: 10,
     render: (input) => (
-      <SessionContextUsage session={input.session} active={input.active} placement="bottom" compact={input.compact} />
+      <SessionContextUsage
+        session={input.session}
+        screen={input.screen}
+        active={input.active}
+        placement="bottom"
+        compact={input.compact}
+      />
     ),
   })
 
   ctx.add(Slot, {
     at: "session.composer.bottom",
-    render: (input) => <ComposerUsage session={input.session} />,
+    render: (input) => <ComposerUsage session={input.session} screen={input.screen} />,
   })
 
   ctx.add(
