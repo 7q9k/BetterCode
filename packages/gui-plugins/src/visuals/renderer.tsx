@@ -133,7 +133,8 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
   const leadModel = (model: { providerID: string; modelID: string; variant?: string } | undefined) =>
     model ? `${model.providerID}/${model.modelID}${model.variant ? ` · ${model.variant}` : ""}` : undefined
 
-  // Sends the setup to the session as a note the lead reads on its next turn; it does not start a turn by itself.
+  // Sends the setup to the session as a note the lead reads on its next turn; it does not wake an idle session, but a
+  // running one takes it at its next step, so the sync below sends it only while the session is idle.
   const apply = async (session: MountedSession, members: Parameters<typeof teamNote>[0]) => {
     const key = setupKey()
 
@@ -157,7 +158,9 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
   ctx.add(Panel, team)
 
   // Syncs the routed session with the team setup: when the setup differs from what the session last received, the lead
-  // gets the note without the user opening the Team tab.
+  // gets the note without the user opening the Team tab. A running session gets it once it settles: a note admitted
+  // mid-turn is delivered at the next step boundary and makes the model answer the same prompt a second time, as a new
+  // session's first prompt did. Admitted while idle, it waits and reaches the model with the user's next prompt.
   createKeyed(
     () => {
       const session = ctx.sessions.current()
@@ -165,6 +168,8 @@ const setup: Plugin.Setup<typeof VisualsDefinition> = (ctx) => {
       const agents = session?.server.data.location.agent.list({ directory: session.directory })
 
       if (!session || !sent?.ready() || !agents?.length) return undefined
+
+      if (session.server.data.session.status(session.id) === "running") return undefined
 
       return setupDue(sent.value?.setup ?? "") ? { session, key: setupKey(), members: teamMembers(agents) } : undefined
     },
