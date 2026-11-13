@@ -769,6 +769,7 @@ export const builtins = compose({
   sources,
   goal,
   visuals,
+  computer: { ...computer, mainEntry: () => import("./computer/main") },
 })
 ```
 
@@ -795,6 +796,7 @@ export const builtins = compose({
   sources: { ...sources, windowEntry: eager(sourcesRenderer) },
   goal: { ...goal, windowEntry: eager(goalRenderer) },
   visuals: { ...visuals, windowEntry: eager(visualsRenderer) },
+  computer,
 })
 ```
 
